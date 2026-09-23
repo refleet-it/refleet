@@ -71,7 +71,7 @@
     "spaze/phpstan-disallowed-calls": "^4.0",
     "symfony/browser-kit": "7.4.*",
     "symfony/css-selector": "7.4.*",
-    "symfony/debug-bundle": "7.4.*",
+    "symfony/debug-bundle": "8.1.*",
     "symfony/maker-bundle": "^1.52",
     "symfony/phpunit-bridge": "^7.4",
     "symfony/stopwatch": "7.4.*",
