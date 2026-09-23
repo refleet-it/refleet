@@ -88,7 +88,10 @@ jobs:
             -   name: Hand the digest to the merge job
                 run: |
                     mkdir -p /tmp/digests
-                    touch "/tmp/digests/${{ steps.build.outputs.digest }}"
+                    # The bare hex, not the sha256: form — artifact paths cannot contain a
+                    # colon. The merge job puts the prefix back.
+                    digest='${{ steps.build.outputs.digest }}'
+                    touch "/tmp/digests/${digest#sha256:}"
 
             -   uses: actions/upload-artifact@v4
                 with:
