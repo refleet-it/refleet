@@ -1,0 +1,39 @@
+# Gitleaks configuration
+# https://github.com/gitleaks/gitleaks
+
+title = "Refleet Gitleaks Configuration"
+
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Global allowlist for false positives"
+
+# Paths that should never be scanned (cache files, generated files, examples)
+paths = [
+    '''\.php-cs-fixer\.cache$''',
+    '''\.env\.local$''',
+    '''\.env\.test$''',
+    '''var/log/''',
+    '''vendor/''',
+    '''node_modules/''',
+    '''\.claude/''',
+    # Test files with fake tokens/passwords
+    '''backend/tests/''',
+]
+
+# Regex patterns for known false positives.
+# These match the offending values, not the files holding them, so a genuine secret committed
+# next to them is still caught.
+regexes = [
+    # MD5 hashes (used in php-cs-fixer cache)
+    '''^[a-f0-9]{32}$''',
+    # runner/agent/src/backend-client.test.ts — placeholder API key in a response-shape assertion.
+    '''ib_abc123secret''',
+    # backend/fixtures/.../GitLabConnectionFactory.php names the fixture token in a docblock so a
+    # reader can see what the stored ciphertext decrypts to. The token itself is invented and the
+    # key it was encrypted with is the local-dev one from .env.dist.
+    # Matched against the detected secret, which gitleaks truncates to the rule's own length, so
+    # this has to be a prefix rather than the whole token.
+    '''glpat-fixture-''',
+]

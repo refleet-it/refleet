@@ -1,0 +1,11 @@
+dist/
+# Rendered from docs/ at build time — its formatting is marked's, not ours
+src/assets/docs/
+node_modules/
+coverage/
+.angular/
+*.min.js
+*.min.css
+package-lock.json
+
+.angular

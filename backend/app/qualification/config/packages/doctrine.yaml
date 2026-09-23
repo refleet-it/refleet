@@ -1,0 +1,35 @@
+# The qualification context owns one connection and one entity manager. They live here so the
+# application that serves this context declares its own database wiring instead of
+# inheriting all eight — see docs/adr/0001-multiple-kernels.md.
+doctrine:
+    dbal:
+        connections:
+            qualification:
+                url: '%env(resolve:DATABASE_URL)%'
+                profiling_collect_backtrace: false
+                schema_filter: ~^(qualification\.|public\.doctrine_migration_versions)~
+                options:
+                    1002: "SET search_path TO qualification, public"
+    orm:
+        default_entity_manager: qualification
+        entity_managers:
+            qualification:
+                connection: qualification
+                naming_strategy: doctrine.orm.naming_strategy.underscore_number_aware
+                metadata_cache_driver:
+                    type: pool
+                    pool: cache.app
+                mappings:
+                    Qualification:
+                        type: attribute
+                        is_bundle: false
+                        dir: '%kernel.project_dir%/app/qualification/src'
+                        prefix: 'App\Qualification'
+                        alias: Qualification
+
+when@test:
+    doctrine:
+        dbal:
+            connections:
+                qualification:
+                    dbname_suffix: '_test%env(default::TEST_TOKEN)%'

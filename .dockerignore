@@ -1,0 +1,21 @@
+.git/
+.gitlab-ci.yml
+infra/secrets/
+*.md
+backend/.env
+trivy-report.json
+gitleaks-report.json
+frontend/node_modules/
+frontend/.angular/
+frontend/dist/
+
+# Runtime and build output that must never reach an image, and which makes the build
+# context enormous on a working checkout — backend/var alone runs to gigabytes of logs.
+backend/var/
+backend/vendor/
+runner/workspace/
+runner/agent/node_modules/
+runner/agent/dist/
+
+# docs/ is deliberately not ignored: the frontend image renders it into the pages served
+# at /docs. The `*.md` pattern above matches the repository root only, so these arrive.

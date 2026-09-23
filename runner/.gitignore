@@ -1,0 +1,8 @@
+# Runtime working directory mounted into the container (cloned repos, task files).
+# agent/ is kept because compose.override.yml bind-mounts it: on a fresh clone Docker would
+# otherwise create it as root inside the checkout.
+workspace/*
+!workspace/.gitkeep
+!workspace/agent/
+workspace/agent/*
+!workspace/agent/.gitkeep

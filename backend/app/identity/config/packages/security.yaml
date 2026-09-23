@@ -1,0 +1,24 @@
+security:
+    providers:
+        app_user_provider:
+            id: App\Identity\Account\Infrastructure\Security\AccountUserProvider
+
+    access_control:
+        - { path: ^/internal, roles: IS_AUTHENTICATED_FULLY }
+        - { path: ^/api/identity/login, roles: PUBLIC_ACCESS }
+        - { path: ^/api/identity/register, roles: PUBLIC_ACCESS }
+        - { path: ^/api/identity/verify-email, roles: PUBLIC_ACCESS }
+        - { path: ^/api/identity/refresh, roles: PUBLIC_ACCESS }
+        - { path: ^/api/identity/logout, roles: PUBLIC_ACCESS }
+        - { path: ^/api/identity/request-password-reset, roles: PUBLIC_ACCESS }
+        - { path: ^/api/identity/reset-password, roles: PUBLIC_ACCESS }
+        - { path: ^/api/identity/auth/google, roles: PUBLIC_ACCESS }
+        # `refleet login`: the CLI has no credentials yet when it starts, and polls with a device secret
+        - { path: ^/api/identity/cli-authorizations$, methods: [POST], roles: PUBLIC_ACCESS }
+        - { path: ^/api/identity/cli-authorizations/claim$, methods: [POST], roles: PUBLIC_ACCESS }
+        - { path: ^/api/health, roles: PUBLIC_ACCESS }
+        - { path: ^/api/instance, roles: PUBLIC_ACCESS }
+        - { path: ^/api/client-errors, roles: PUBLIC_ACCESS }
+        - { path: ^/api/metrics, roles: PUBLIC_ACCESS }
+        - { path: ^/api/doc, roles: PUBLIC_ACCESS }
+        - { path: ^/api, roles: IS_AUTHENTICATED_FULLY }

@@ -1,0 +1,31 @@
+<div class="grid min-h-svh lg:grid-cols-2">
+  <div class="flex flex-col gap-4 p-6 md:p-10">
+    <div class="auth-logo flex justify-center gap-2 md:justify-start">
+      <a href="/" class="flex items-center gap-2 font-medium">
+        <img src="/logo.svg" alt="Refleet" class="h-8 w-auto" width="700" height="242" />
+      </a>
+    </div>
+    <div class="flex flex-1 items-center justify-center">
+      <div class="w-full max-w-sm">
+        <router-outlet></router-outlet>
+      </div>
+    </div>
+  </div>
+  <div class="auth-right relative hidden bg-muted lg:block">
+    <picture>
+      <source srcset="assets/images/auth-background.avif" type="image/avif" />
+      <source srcset="assets/images/auth-background.webp" type="image/webp" />
+      <img
+        src="assets/images/auth-background.jpg"
+        alt="Welcome"
+        class="absolute inset-0 h-full w-full object-cover"
+        fetchpriority="high"
+      />
+    </picture>
+    <div class="absolute inset-0 bg-black/30"></div>
+    <div class="absolute inset-x-0 bottom-0 p-10 text-white">
+      <div class="text-2xl font-semibold">Welcome</div>
+      <div class="mt-2 text-base text-white/90">A platform that helps you manage your business</div>
+    </div>
+  </div>
+</div>

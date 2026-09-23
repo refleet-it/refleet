@@ -1,0 +1,26 @@
+framework:
+    messenger:
+        buses:
+            command.bus:
+                middleware:
+                    - 'App\Shared\Infrastructure\Telemetry\TraceBoundedContextMiddleware'
+                    - doctrine_transaction: ['qualification']
+
+        transports:
+            to_qualification:
+                dsn: '%env(MESSENGER_TRANSPORT_DSN)%?queue_name=to_qualification'
+                serializer: 'App\Qualification\Qualification\Infrastructure\Bus\QualificationMessageSerializer'
+
+            # Producer-only — see App\Shared\Infrastructure\Messenger\OutboundMessageSerializer.
+            to_notification:
+                dsn: '%env(MESSENGER_TRANSPORT_DSN)%?queue_name=to_notification'
+                serializer: 'App\Shared\Infrastructure\Messenger\OutboundMessageSerializer'
+
+            to_runner:
+                dsn: '%env(MESSENGER_TRANSPORT_DSN)%?queue_name=to_runner'
+                serializer: 'App\Shared\Infrastructure\Messenger\OutboundMessageSerializer'
+
+        routing:
+            'App\Qualification\Qualification\Infrastructure\Bus\QualificationFinished\QualificationFinishedMessage': to_notification
+            'App\Qualification\Qualification\Infrastructure\Bus\RunnerJobRequested\RunnerJobRequestedMessage': to_runner
+            'App\Qualification\Qualification\Infrastructure\Bus\OwnerJobsCancellationRequested\OwnerJobsCancellationRequestedMessage': to_runner

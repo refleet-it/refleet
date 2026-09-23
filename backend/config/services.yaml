@@ -1,0 +1,122 @@
+# Self-hosted instances are invitation-only unless their operator says otherwise; the hosted
+# service turns this on. Enforced in RegisterController, and reported by InstanceController
+# so the sign-in screen can stop offering what would fail.
+#
+# SUPPORT_EMAIL is the address this instance publishes: shown in the application's help
+# dialog and in the email footer, and used as reply-to. Most instances have none, so empty is
+# the default — the footer and the dialog then say nothing, and reply-to falls back to the
+# sender (EmailNotificationService). TERMS_URL is the same idea for legal pages.
+parameters:
+    env(ALLOW_SIGNUP): 'false'
+    env(SUPPORT_EMAIL): ''
+    env(TERMS_URL): ''
+
+services:
+    _defaults:
+        autowire: true
+        autoconfigure: true
+
+    App\:
+        resource: '../src/'
+        exclude:
+            - '../src/DependencyInjection/'
+            - '../src/Kernel.php'
+            - '../src/Shared/Infrastructure/Doctrine/Purger/'
+            - '../src/Shared/Infrastructure/Command/'
+
+    # Narrower registration on top of the blanket one above, purely to add the
+    # controller.service_arguments tag — non-controller classes under Http/ (InternalApiClient,
+    # the HTTP-backed port adapters under Http/Internal/, ...) are already registered by App\:
+    # above and don't need it.
+    App\Shared\Infrastructure\Http\:
+        resource: '../src/Shared/Infrastructure/Http/**/*Controller.php'
+        tags: ['controller.service_arguments']
+
+    # Entity Manager bindings per context
+    App\Shared\Infrastructure\Http\EtagHandler:
+        arguments:
+            $versionCache: '@App\Shared\Application\Cache\ResourceVersionCache'
+
+    # Custom migrations metadata storage that handles multi-schema setup
+    # This is registered in doctrine_migrations.yaml services config
+    App\Shared\Infrastructure\Doctrine\Migrations\SafeTableMetadataStorage:
+        arguments:
+            $connection: '@doctrine.dbal.default_connection'
+
+    # Unified JSON formatter for logs (uses 'msg' instead of 'message')
+    monolog.formatter.unified_json:
+        class: App\Shared\Infrastructure\Logger\UnifiedJsonFormatter
+
+    # Monolog processors for adding context
+
+    # User context processor (custom - adds user_id, email, roles)
+    App\Shared\Infrastructure\Logger\Processor\UserContextProcessor:
+        tags:
+            - { name: monolog.processor }
+
+    # Web processor - adds IP, user agent, URL, method
+    Monolog\Processor\WebProcessor:
+        tags:
+            - { name: monolog.processor }
+
+    # Request ID processor - adds request_id and trace_id for correlation
+    App\Shared\Infrastructure\Logger\Processor\RequestIdProcessor:
+        tags:
+            - { name: monolog.processor }
+
+    # Metric collectors - all implementations are auto-tagged for MetricsController
+    _instanceof:
+        App\Shared\Infrastructure\Metrics\MetricCollectorInterface:
+            tags: ['app.metric_collector']
+
+when@dev:
+    services:
+        _defaults:
+            autowire: true
+            autoconfigure: true
+
+        App\Fixtures\:
+            resource: '../fixtures/'
+
+        App\Shared\Infrastructure\Doctrine\Purger\:
+            resource: '../src/Shared/Infrastructure/Doctrine/Purger/'
+
+        App\Shared\Infrastructure\Command\:
+            resource: '../src/Shared/Infrastructure/Command/'
+
+        Doctrine\Common\DataFixtures\Purger\PurgerInterface: '@App\Shared\Infrastructure\Doctrine\Purger\MultiEntityManagerPurger'
+
+        doctrine.fixtures.purger.orm_purger_factory:
+            class: App\Shared\Infrastructure\Doctrine\Purger\MultiEntityManagerPurgerFactory
+            arguments:
+                $managerRegistry: '@doctrine'
+            tags:
+                - { name: 'doctrine.fixtures.purger_factory', alias: 'default' }
+
+when@test:
+    services:
+        _defaults:
+            autowire: true
+            autoconfigure: true
+
+        App\Fixtures\:
+            resource: '../fixtures/'
+
+        App\Tests\Helpers\Messenger\SetUpMessengerTransports:
+            arguments:
+                $transports: !tagged_iterator messenger.receiver
+
+        App\Shared\Infrastructure\Doctrine\Purger\:
+            resource: '../src/Shared/Infrastructure/Doctrine/Purger/'
+
+        App\Shared\Infrastructure\Command\:
+            resource: '../src/Shared/Infrastructure/Command/'
+
+        Doctrine\Common\DataFixtures\Purger\PurgerInterface: '@App\Shared\Infrastructure\Doctrine\Purger\MultiEntityManagerPurger'
+
+        doctrine.fixtures.purger.orm_purger_factory:
+            class: App\Shared\Infrastructure\Doctrine\Purger\MultiEntityManagerPurgerFactory
+            arguments:
+                $managerRegistry: '@doctrine'
+            tags:
+                - { name: 'doctrine.fixtures.purger_factory', alias: 'default' }

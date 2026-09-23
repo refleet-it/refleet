@@ -1,0 +1,75 @@
+# The monolith serves every context, so it pulls in the service wiring of each context
+# that has already moved under app/. Contexts still living in src/ are registered by the
+# shared config/services.yaml — see docs/adr/0001-multiple-kernels.md.
+imports:
+    - { resource: '../../notification/config/services.yaml' }
+    - { resource: '../../file/config/services.yaml' }
+    - { resource: '../../qualification/config/services.yaml' }
+    - { resource: '../../shift/config/services.yaml' }
+    - { resource: '../../playbook/config/services.yaml' }
+    - { resource: '../../runner/config/services.yaml' }
+    - { resource: '../../project/config/services.yaml' }
+    - { resource: '../../organization/config/services.yaml' }
+    - { resource: '../../identity/config/services.yaml' }
+
+services:
+    _defaults:
+        autowire: true
+        autoconfigure: true
+
+    # Every HTTP-backed port adapter (App\Shared\Infrastructure\Http\Internal\Http*) exists so a
+    # context that does NOT own a given App\Shared\Domain\Service\*Interface can still reach it
+    # once contexts run in separate containers — see docs/adr/0001-multiple-kernels.md. The
+    # monolith has every real, in-process implementation available in the same container, so it
+    # should never resolve to the HTTP adapter for any of them — but a service alias is a single,
+    # global mapping in the container, not scoped per-consumer, and every consuming context's own
+    # services.yaml (imported above) redeclares the SAME interface key pointing at the HTTP
+    # adapter. Whichever import lands last wins, which is not reliably the owning context's own
+    # file — restated explicitly here, matching every owning context's own alias, so correctness
+    # doesn't depend on import order.
+    App\Shared\Domain\Service\ApiKeyValidatorInterface:
+        alias: App\Identity\Account\Infrastructure\Security\DoctrineApiKeyValidator
+
+    App\Shared\Domain\Service\OrganizationContextProviderInterface:
+        alias: App\Organization\Organization\Infrastructure\Service\OrganizationContextProvider
+
+    App\Shared\Domain\Service\GitLabWebhookSecretProviderInterface:
+        alias: App\Organization\GitLabConnection\Infrastructure\Service\GitLabWebhookSecretProvider
+
+    App\Shared\Domain\Service\RunnerDirectoryInterface:
+        alias: App\Runner\Runner\Infrastructure\Service\RunnerDirectory
+
+    App\Shared\Domain\Service\ProjectCatalogInterface:
+        alias: App\Project\Project\Infrastructure\Service\ProjectCatalog
+
+    App\Shared\Domain\Service\ProjectRegistryInterface:
+        alias: App\Project\Project\Infrastructure\Service\ProjectRegistry
+
+    App\Shared\Domain\Service\UserEmailProviderInterface:
+        alias: App\Identity\Account\Infrastructure\Service\UserEmailProvider
+
+    App\Shared\Domain\Service\QualifiedProjectsInterface:
+        alias: App\Qualification\Qualification\Infrastructure\Service\QualifiedProjects
+
+    App\Shared\Domain\Service\TemplateEmailSenderInterface:
+        alias: App\Notification\Notification\Infrastructure\Service\EmailNotificationService
+
+    App\Shared\Domain\Service\InvitedAccountRegistrarInterface:
+        alias: App\Identity\Account\Infrastructure\Service\InvitedAccountRegistrar
+
+    # Each imported services.yaml above tags App\Shared\Application\Event\DomainEventDispatcher
+    # for its own connection only; since a service's tags list replaces rather than merges
+    # across redeclarations, whichever import lands last would otherwise be the only
+    # connection this listener fires for. The monolith runs every context in one process, so
+    # unlike a standalone app it genuinely needs all eight — restated explicitly here.
+    App\Shared\Application\Event\DomainEventDispatcher:
+        tags:
+            - { name: 'doctrine.event_listener', event: 'preFlush', connection: 'identity', priority: 500 }
+            - { name: 'doctrine.event_listener', event: 'preFlush', connection: 'file', priority: 500 }
+            - { name: 'doctrine.event_listener', event: 'preFlush', connection: 'notification', priority: 500 }
+            - { name: 'doctrine.event_listener', event: 'preFlush', connection: 'organization', priority: 500 }
+            - { name: 'doctrine.event_listener', event: 'preFlush', connection: 'project', priority: 500 }
+            - { name: 'doctrine.event_listener', event: 'preFlush', connection: 'runner', priority: 500 }
+            - { name: 'doctrine.event_listener', event: 'preFlush', connection: 'qualification', priority: 500 }
+            - { name: 'doctrine.event_listener', event: 'preFlush', connection: 'shift', priority: 500 }
+            - { name: 'doctrine.event_listener', event: 'preFlush', connection: 'playbook', priority: 500 }

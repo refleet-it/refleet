@@ -1,0 +1,6 @@
+shared:
+    resource: ../../src/Shared/Infrastructure/Http/
+    type: attribute
+    prefix: /api
+    defaults:
+        _format: json 

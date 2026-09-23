@@ -1,0 +1,67 @@
+<div class="flex flex-col gap-6">
+  <div>
+    <a routerLink="/dashboard/team" class="text-muted-foreground text-sm hover:underline"
+      >&larr; Back to team</a
+    >
+  </div>
+
+  <div>
+    <h1 class="text-2xl font-semibold">Invite Teammate</h1>
+    <p class="text-muted-foreground text-sm">
+      Send an email invitation to join your organization — the recipient doesn't need an existing
+      account.
+    </p>
+  </div>
+
+  @if (isLoading()) {
+    <div hlmCard>
+      <div hlmCardContent class="flex flex-col gap-2">
+        <span hlmSkeleton class="block h-4 w-16"></span>
+        <span hlmSkeleton class="block h-9 w-full"></span>
+        <span hlmSkeleton class="mt-2 block h-9 w-32"></span>
+      </div>
+    </div>
+  } @else if (!isOwner) {
+    <p class="text-muted-foreground text-sm">Only the organization owner can invite teammates.</p>
+  } @else {
+    <div hlmCard>
+      <form hlmCardContent (ngSubmit)="sendInvitation()">
+        <hlm-field [forceInvalid]="showEmailError()">
+          <label hlmLabel for="invite-email">Email</label>
+          <input
+            hlmInput
+            id="invite-email"
+            type="email"
+            name="inviteEmail"
+            class="w-full"
+            placeholder="teammate@example.com"
+            [ngModel]="inviteEmail()"
+            (ngModelChange)="inviteEmail.set($event)"
+            autocomplete="email"
+            data-testid="invite-email-input"
+          />
+          @if (showEmailError()) {
+            <hlm-field-error forceShow data-testid="invite-email-error">
+              Enter a valid email address
+            </hlm-field-error>
+          }
+        </hlm-field>
+
+        @if (inviteError()) {
+          <p class="text-destructive mt-2 text-sm">{{ inviteError() }}</p>
+        }
+
+        <div class="mt-4 flex items-center gap-3">
+          <button hlmBtn type="submit" [disabled]="isSendingInvitation() || !inviteEmail().trim()">
+            @if (isSendingInvitation()) {
+              Sending…
+            } @else {
+              Send invitation
+            }
+          </button>
+          <a hlmBtn variant="ghost" routerLink="/dashboard/team">Cancel</a>
+        </div>
+      </form>
+    </div>
+  }
+</div>

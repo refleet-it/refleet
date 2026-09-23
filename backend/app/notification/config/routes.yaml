@@ -1,0 +1,15 @@
+notification_preference:
+    resource: ../src/NotificationPreference/Infrastructure/Api/
+    type: attribute
+    prefix: /api
+    defaults:
+        _format: json
+
+# Container-to-container only, gated by the `internal` firewall — see
+# App\Shared\Infrastructure\Http\InternalApiClient and docs/adr/0001-multiple-kernels.md.
+notification_internal:
+    resource: ../src/Notification/Infrastructure/Api/Internal/
+    type: attribute
+    prefix: /internal
+    defaults:
+        _format: json

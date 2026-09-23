@@ -1,0 +1,12 @@
+framework:
+    messenger:
+        buses:
+            command.bus:
+                middleware:
+                    - 'App\Shared\Infrastructure\Telemetry\TraceBoundedContextMiddleware'
+                    - doctrine_transaction: ['notification']
+
+        transports:
+            to_notification:
+                dsn: '%env(MESSENGER_TRANSPORT_DSN)%?queue_name=to_notification'
+                serializer: 'App\Notification\Notification\Infrastructure\Bus\NotificationMessageSerializer'

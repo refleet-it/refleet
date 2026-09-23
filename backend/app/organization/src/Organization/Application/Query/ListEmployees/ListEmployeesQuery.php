@@ -1,0 +1,17 @@
+<?php
+
+declare(strict_types=1);
+
+namespace App\Organization\Organization\Application\Query\ListEmployees;
+
+final readonly class ListEmployeesQuery
+{
+    public function __construct(
+        public string $organizationId,
+        public ?int $page = null,
+        public ?int $limit = null,
+        public ?string $sortBy = null,
+        public ?string $sortDirection = null,
+    ) {
+    }
+}

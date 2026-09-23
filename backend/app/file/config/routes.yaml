@@ -1,0 +1,6 @@
+file:
+    resource: ../src/File/Infrastructure/Api/
+    type: attribute
+    prefix: /api
+    defaults:
+        _format: json

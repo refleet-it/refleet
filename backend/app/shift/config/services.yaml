@@ -1,0 +1,42 @@
+services:
+    _defaults:
+        autowire: true
+        autoconfigure: true
+
+    App\Shift\:
+        resource: '../src/'
+        exclude:
+            - '../src/Shift/Infrastructure/Api/'
+
+    App\Shift\Shift\Infrastructure\Api\:
+        resource: '../src/Shift/Infrastructure/Api/**/*Controller.php'
+        tags: ['controller.service_arguments']
+
+    App\Shift\Shift\Infrastructure\Persistence\:
+        resource: '../src/Shift/Infrastructure/Persistence/'
+        bind:
+            Doctrine\ORM\EntityManagerInterface: '@doctrine.orm.shift_entity_manager'
+
+    # HTTP-backed adapter — see App\Shared\Infrastructure\Http\Internal\HttpApiKeyValidator.
+    App\Shared\Domain\Service\ApiKeyValidatorInterface:
+        alias: App\Shared\Infrastructure\Http\Internal\HttpApiKeyValidator
+
+    # HTTP-backed adapters — see App\Shared\Infrastructure\Http\Internal\.
+    App\Shared\Domain\Service\OrganizationContextProviderInterface:
+        alias: App\Shared\Infrastructure\Http\Internal\HttpOrganizationContextProvider
+    App\Shared\Domain\Service\GitLabWebhookSecretProviderInterface:
+        alias: App\Shared\Infrastructure\Http\Internal\HttpGitLabWebhookSecretProvider
+    App\Shared\Domain\Service\RunnerDirectoryInterface:
+        alias: App\Shared\Infrastructure\Http\Internal\HttpRunnerDirectory
+    App\Shared\Domain\Service\ProjectCatalogInterface:
+        alias: App\Shared\Infrastructure\Http\Internal\HttpProjectCatalog
+    App\Shared\Domain\Service\UserEmailProviderInterface:
+        alias: App\Shared\Infrastructure\Http\Internal\HttpUserEmailProvider
+    App\Shared\Domain\Service\QualifiedProjectsInterface:
+        alias: App\Shared\Infrastructure\Http\Internal\HttpQualifiedProjects
+
+    # Registers the shared domain-event dispatcher for this context's own connection only —
+    # see App\Shared\Application\Event\DomainEventDispatcher.
+    App\Shared\Application\Event\DomainEventDispatcher:
+        tags:
+            - { name: 'doctrine.event_listener', event: 'preFlush', connection: 'shift', priority: 500 }

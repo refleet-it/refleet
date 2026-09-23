@@ -1,0 +1,23 @@
+parameters:
+	phpat:
+		ignore_doc_comments: false
+		ignore_built_in_classes: false
+		show_rule_names: true
+
+services:
+	-
+		factory: App\Tests\Architecture\QueryFolderMustMatchDomainTest
+		tags:
+			- phpat.test
+	-
+		factory: App\Tests\Architecture\QueryUseCaseStructureTest
+		tags:
+			- phpat.test
+	-
+		factory: App\Tests\Architecture\CommandFolderMustMatchDomainTest
+		tags:
+			- phpat.test
+	-
+		factory: App\Tests\Architecture\CommandUseCaseStructureTest
+		tags:
+			- phpat.test

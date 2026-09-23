@@ -1,0 +1,23 @@
+{
+    "$schema": "https://raw.githubusercontent.com/infection/infection/0.29.11/resources/schema.json",
+    "source": {
+        "directories": [
+            "src"
+        ],
+        "excludes": [
+            "Shared/Infrastructure/Doctrine",
+            "Shared/Infrastructure/Security"
+        ]
+    },
+    "phpUnit": {
+        "customPath": "vendor/bin/phpunit"
+    },
+    "logs": {
+        "text": "tests/coverage/infection.log",
+        "summary": "tests/coverage/infection-summary.log"
+    },
+    "mutators": {
+        "@default": true
+    },
+    "initialTestsPhpOptions": "-d memory_limit=-1"
+}

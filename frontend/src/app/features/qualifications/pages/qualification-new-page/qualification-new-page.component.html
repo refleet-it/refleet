@@ -1,0 +1,165 @@
+<div class="flex flex-col gap-6">
+  <div>
+    <a routerLink="/dashboard/qualifications" class="text-muted-foreground text-sm hover:underline"
+      >&larr; Back to qualifications</a
+    >
+  </div>
+
+  <div>
+    <h1 class="text-2xl font-semibold">New Qualification</h1>
+    <p class="text-muted-foreground text-sm">
+      Define the criteria used to check which projects qualify.
+    </p>
+  </div>
+
+  <div hlmCard>
+    <form hlmCardContent class="flex flex-col gap-5" (ngSubmit)="createQualification()">
+      <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        <hlm-field [forceInvalid]="showFieldError('title')">
+          <label hlmLabel for="qualification-title">Title</label>
+          <input
+            hlmInput
+            id="qualification-title"
+            class="w-full"
+            placeholder="Find projects using acme/legacy-lib"
+            [ngModel]="form().title"
+            (ngModelChange)="updateForm('title', $event)"
+            [forceInvalid]="showFieldError('title')"
+            name="title"
+          />
+          @if (showFieldError('title')) {
+            <hlm-field-error forceShow>{{ fieldErrors().title }}</hlm-field-error>
+          }
+        </hlm-field>
+
+        <hlm-field>
+          <label hlmLabel for="qualification-description">Description (optional)</label>
+          <input
+            hlmInput
+            id="qualification-description"
+            class="w-full"
+            placeholder="Short description of the qualification"
+            [ngModel]="form().description"
+            (ngModelChange)="updateForm('description', $event)"
+            name="description"
+          />
+        </hlm-field>
+      </div>
+
+      <app-playbook-picker
+        appliesTo="qualification"
+        idPrefix="qualification"
+        [rules]="form().qualificationRules"
+        [prompt]="form().qualificationPrompt"
+        (applied)="applyPlaybooks($event)"
+      />
+
+      <hlm-field>
+        <label hlmLabel for="qualification-rules">Rules</label>
+        <textarea
+          hlmTextarea
+          id="qualification-rules"
+          class="w-full font-mono text-xs"
+          rows="5"
+          placeholder="Standing instructions the agent follows while qualifying — composed from the rule playbooks above, or written here."
+          [ngModel]="form().qualificationRules"
+          (ngModelChange)="updateForm('qualificationRules', $event)"
+          name="qualificationRules"
+        ></textarea>
+        <p class="text-muted-foreground text-xs">
+          Sent verbatim as a "## Rules" section in front of the criteria. Leave empty for none.
+        </p>
+      </hlm-field>
+
+      <hlm-field [forceInvalid]="showFieldError('qualificationPrompt')">
+        <label hlmLabel for="qualification-prompt">AI Prompt</label>
+        <textarea
+          hlmTextarea
+          id="qualification-prompt"
+          class="w-full"
+          rows="5"
+          placeholder="Check whether the project uses the acme/legacy-lib library and requires migration."
+          [ngModel]="form().qualificationPrompt"
+          (ngModelChange)="updateForm('qualificationPrompt', $event)"
+          [forceInvalid]="showFieldError('qualificationPrompt')"
+          name="qualificationPrompt"
+        ></textarea>
+        @if (showFieldError('qualificationPrompt')) {
+          <hlm-field-error forceShow>{{ fieldErrors().qualificationPrompt }}</hlm-field-error>
+        }
+      </hlm-field>
+
+      <hlm-field>
+        <label hlmLabel for="qualification-agent">Agent</label>
+        <select
+          id="qualification-agent"
+          class="border-input bg-background h-9 w-full rounded-md border px-3 text-sm sm:w-64"
+          [ngModel]="form().qualificationEngine"
+          (ngModelChange)="updateQualificationEngine($event)"
+          name="qualificationAgent"
+        >
+          <option value="claude">Claude Code</option>
+          <option value="kiro">Kiro</option>
+        </select>
+      </hlm-field>
+
+      @if (modelsForEngine(form().qualificationEngine).length > 0) {
+        <hlm-field>
+          <label hlmLabel for="qualification-model">Model</label>
+          <select
+            id="qualification-model"
+            class="border-input bg-background h-9 w-full rounded-md border px-3 text-sm sm:w-64"
+            [ngModel]="form().qualificationModel"
+            (ngModelChange)="updateForm('qualificationModel', $event)"
+            name="qualificationModel"
+          >
+            <option value="">Auto (runner default)</option>
+            @for (model of modelsForEngine(form().qualificationEngine); track model) {
+              <option [value]="model">{{ model }}</option>
+            }
+          </select>
+        </hlm-field>
+      }
+
+      <app-prompt-preview [load]="previewPrompt" />
+
+      <fieldset hlmFieldSet>
+        <legend hlmFieldLegend variant="label">Target Projects</legend>
+        <p class="text-muted-foreground text-xs">
+          No selection means the qualification checks every project in the organization.
+        </p>
+
+        @if (isLoadingProjects()) {
+          <p class="text-muted-foreground text-sm">Loading projects…</p>
+        } @else if (projectsFailed()) {
+          <p class="text-destructive text-sm">
+            Could not load your projects. Refresh the page to try again.
+          </p>
+        } @else if (0 === projects().length) {
+          <p class="text-muted-foreground text-sm">
+            No registered projects. They are synced from a GitLab group —
+            <a class="text-primary underline" routerLink="/dashboard/settings">connect GitLab</a>
+            first.
+          </p>
+        } @else {
+          <app-project-tree-picker [items]="projects()" [(selectedIds)]="selectedProjectIds" />
+        }
+      </fieldset>
+
+      @if (createError()) {
+        <p class="text-destructive text-sm">{{ createError() }}</p>
+      }
+
+      <div class="flex items-center gap-3">
+        <button hlmBtn type="submit" [disabled]="isCreating()">
+          @if (isCreating()) {
+            Creating…
+          } @else {
+            Create Qualification
+          }
+        </button>
+        <a hlmBtn variant="ghost" routerLink="/dashboard/qualifications">Cancel</a>
+      </div>
+    </form>
+  </div>
+</div>

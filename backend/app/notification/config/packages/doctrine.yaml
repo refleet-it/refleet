@@ -1,0 +1,35 @@
+# The notification context owns one connection and one entity manager. They live here so the
+# application that serves this context declares its own database wiring instead of
+# inheriting all eight — see docs/adr/0001-multiple-kernels.md.
+doctrine:
+    dbal:
+        connections:
+            notification:
+                url: '%env(resolve:DATABASE_URL)%'
+                profiling_collect_backtrace: false
+                schema_filter: ~^(notification\.|public\.doctrine_migration_versions)~
+                options:
+                    1002: "SET search_path TO notification, public"
+    orm:
+        default_entity_manager: notification
+        entity_managers:
+            notification:
+                connection: notification
+                naming_strategy: doctrine.orm.naming_strategy.underscore_number_aware
+                metadata_cache_driver:
+                    type: pool
+                    pool: cache.app
+                mappings:
+                    Notification:
+                        type: attribute
+                        is_bundle: false
+                        dir: '%kernel.project_dir%/app/notification/src'
+                        prefix: 'App\Notification'
+                        alias: Notification
+
+when@test:
+    doctrine:
+        dbal:
+            connections:
+                notification:
+                    dbname_suffix: '_test%env(default::TEST_TOKEN)%'

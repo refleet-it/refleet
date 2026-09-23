@@ -1,0 +1,187 @@
+# Local development overrides
+# Automatically merged with compose.yml when running: docker compose up
+# Includes: Vite dev server, Mailpit, Xdebug
+
+# Dev environment shared by every backend-<context> + worker-<context>
+x-dev-env: &dev-env
+    APP_ENV: dev
+    MAILER_DSN: smtp://mail:1025
+    # URLs for emails and callbacks
+    FRONTEND_URL: http://localhost:4200
+    APP_URL: http://localhost
+    API_BASE_URL: http://localhost/api
+    PROFILER_ENABLED: "true"
+    # Connect-mode Xdebug: PHP dials out to the IDE's listener on the host, so this is the
+    # same value on every context's container — nothing here needs a container-specific port.
+    XDEBUG_CONFIG: client_host=host.docker.internal client_port=9003
+    CORS_ALLOW_ORIGIN: http://localhost:4200
+
+# Every backend-<context> web container needs the same dev build target, bind mounts for
+# hot-reload, and its own (unchanged, generic) Caddyfile — see infra/caddy/Caddyfile's own
+# comment on why the same file works for every context.
+x-backend-dev: &backend-dev
+    build:
+        target: dev
+    command: ["frankenphp", "run", "--config", "/etc/caddy/Caddyfile"]
+    environment:
+        <<: *dev-env
+    volumes:
+        - .:/workspace
+        - ./backend:/app
+        # Named and shared with every worker, which runs the same code from the same bind
+        # mount. As separate anonymous volumes they drifted: composer install runs in the
+        # backend containers, so workers kept the vendor baked into the image and
+        # crash-looped on classes added since.
+        - backend-vendor:/app/vendor
+        - ./infra/caddy/Caddyfile:/etc/caddy/Caddyfile
+    extra_hosts:
+        - "host.docker.internal:host-gateway"
+
+x-worker-dev: &worker-dev
+    build:
+        target: dev
+    environment:
+        <<: *dev-env
+        MAILER_FROM_EMAIL: noreply@refleet.it
+        MAILER_FROM_NAME: Refleet
+    volumes:
+        - ./backend:/app
+        - backend-vendor:/app/vendor
+
+services:
+    backend:
+        <<: *backend-dev
+        # Deliberately no `ports:` — this is the monolith tooling container (see compose.yml's
+        # comment on it), not something a browser talks to. Xdebug still reaches it the same
+        # connect-mode way as every other container, no published port needed for that either.
+
+    caddy-gateway:
+        ports:
+            - "80:80"
+            - "443:443"
+            - "9253:9253" # Caddy metrics
+        volumes:
+            - ./infra/caddy/Caddyfile.gateway:/etc/caddy/Caddyfile
+
+    backend-file:
+        <<: *backend-dev
+    backend-identity:
+        <<: *backend-dev
+    backend-notification:
+        <<: *backend-dev
+    backend-organization:
+        <<: *backend-dev
+    backend-project:
+        <<: *backend-dev
+    backend-playbook:
+        <<: *backend-dev
+    backend-qualification:
+        <<: *backend-dev
+    backend-runner:
+        <<: *backend-dev
+    backend-shift:
+        <<: *backend-dev
+
+    worker-identity:
+        <<: *worker-dev
+    worker-notification:
+        <<: *worker-dev
+    worker-organization:
+        <<: *worker-dev
+    worker-qualification:
+        <<: *worker-dev
+    worker-runner:
+        <<: *worker-dev
+    worker-shift:
+        <<: *worker-dev
+
+    database:
+        ports:
+            - "5555:5432"
+
+    frontend:
+        build:
+            context: ./frontend
+            dockerfile: Dockerfile
+        ports:
+            - "4200:4200"
+        volumes:
+            - ./frontend:/app
+            - /app/node_modules  # Prevent overwriting node_modules from host
+            # scripts/build-docs.mjs renders these into src/assets/docs; they live at the
+            # repository root so GitLab renders them too, which puts them outside /app
+            - ./docs:/docs:ro
+        # The docs watcher runs beside ng serve, which does not know about docs/ at all — see the
+        # note in frontend/scripts/build-docs.mjs for what goes wrong without it.
+        command: sh -c "npm install && (npm run docs:watch &) && npm run start -- --host 0.0.0.0"
+        networks:
+            - network-app
+        environment:
+            NODE_ENV: development
+
+    mail:
+        image: axllent/mailpit:latest
+        restart: always
+        ports:
+            - "8025:8025"  # Web UI at http://localhost:8025
+            - "1025:1025"  # SMTP server
+        environment:
+            TZ: Europe/Warsaw
+        networks:
+            - network-app
+
+    # Local fleet runner, part of the dev stack so AI-mode (Claude/Kiro, auto-detected)
+    # runner jobs have someone to pick them up. GitLab credentials come from the
+    # organization's connected GitLab account, fetched from the backend per job. Talks to
+    # caddy-gateway (the one public entrypoint, routing to whichever context actually owns
+    # each path — see infra/caddy/Caddyfile.gateway) over the compose network rather than
+    # localhost since it's not port-published. Also has its own standalone compose.yml under
+    # runner/agent/ for running it outside this stack (e.g. on a separate machine).
+    #
+    # runner (agent): bundles both claude and kiro-cli and auto-detects which are
+    # actually usable at startup, registering one Runner per detected engine (see
+    # runner/agent/src/detect.ts, runner/agent/src/fleet/loop.ts). Needs
+    # ANTHROPIC_API_KEY and/or KIRO_API_KEY plus REFLEET_API_KEY filled in .env or it
+    # exits immediately.
+    runner:
+        build: ./runner/agent
+        environment:
+            ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+            KIRO_API_KEY: ${KIRO_API_KEY:-}
+            RUNNER_NAME: ${RUNNER_NAME:-local-runner-01}
+            REFLEET_API_URL: ${REFLEET_API_URL:-http://caddy-gateway/api}
+            REFLEET_API_KEY: ${REFLEET_API_KEY:-}
+            HEARTBEAT_INTERVAL_SECONDS: ${HEARTBEAT_INTERVAL_SECONDS:-30}
+            POLL_INTERVAL_SECONDS: ${POLL_INTERVAL_SECONDS:-10}
+            WORKSPACE_CACHE_DIR: /workspace/cache
+            WORKSPACE_CACHE_MAX_SIZE_MB: ${WORKSPACE_CACHE_MAX_SIZE_MB:-5120}
+            CLAUDE_MODEL: ${CLAUDE_MODEL:-}
+            CLAUDE_PERMISSION_MODE: ${CLAUDE_PERMISSION_MODE:-}
+            CLAUDE_ALLOWED_TOOLS: ${CLAUDE_ALLOWED_TOOLS:-}
+            CLAUDE_QUALIFICATION_MODEL: ${CLAUDE_QUALIFICATION_MODEL:-}
+            CLAUDE_QUALIFICATION_ALLOWED_TOOLS: ${CLAUDE_QUALIFICATION_ALLOWED_TOOLS:-}
+            CLAUDE_ADD_DIRS: ${CLAUDE_ADD_DIRS:-}
+            # Comma-separated model ids this runner reports as selectable for the given
+            # engine (heartbeat -> Runner.supportedModels -> GET /runners/available-models
+            # -> the shift/qualification "Model" dropdown). Neither the claude CLI nor
+            # kiro-cli's ACP implementation expose a way to list this at runtime, so it is
+            # operator-declared rather than auto-detected like RUNNER_SUPPORTED_ENGINES.
+            CLAUDE_AVAILABLE_MODELS: ${CLAUDE_AVAILABLE_MODELS:-claude-sonnet-5,claude-opus-5,claude-haiku-4-5-20251001}
+            KIRO_AVAILABLE_MODELS: ${KIRO_AVAILABLE_MODELS:-}
+            # Defaults to true: this runs headless (no TTY) so there is no one to
+            # interactively approve Edit/Write/Bash prompts — without this the agent
+            # just reports it lacks permission instead of making the change.
+            CLAUDE_SKIP_PERMISSIONS: ${CLAUDE_SKIP_PERMISSIONS:-true}
+            CLAUDE_EXTRA_ARGS: ${CLAUDE_EXTRA_ARGS:-}
+            REFLEET_CLAUDE_PATH: ${REFLEET_CLAUDE_PATH:-}
+            REFLEET_KIRO_PATH: ${REFLEET_KIRO_PATH:-}
+        volumes:
+            - ./runner/workspace/agent:/workspace
+        networks:
+            - network-app
+        depends_on:
+            - caddy-gateway
+        restart: unless-stopped
+
+volumes:
+    backend-vendor:

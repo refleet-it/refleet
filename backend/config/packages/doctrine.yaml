@@ -1,0 +1,44 @@
+# Only what every application needs. Each context declares its own connection and entity
+# manager in app/<context>/config/packages/doctrine.yaml; the monolith pulls all of them in.
+doctrine:
+    dbal:
+        default_connection: default
+        types:
+            uuid: Doctrine\DBAL\Types\GuidType
+        connections:
+            # Carries no entities — the messenger transport and the migrations metadata table
+            # are the only things on it.
+            default:
+                url: '%env(resolve:DATABASE_URL)%'
+                profiling_collect_backtrace: false
+                schema_filter: ~^(?!messenger_messages)~
+                options:
+                    1002: "SET search_path TO public"
+    orm:
+        enable_native_lazy_objects: true
+        default_entity_manager: identity
+
+when@test:
+    doctrine:
+        dbal:
+            connections:
+                default:
+                    dbname_suffix: '_test%env(default::TEST_TOKEN)%'
+
+when@prod:
+    doctrine:
+        orm:
+            query_cache_driver:
+                type: pool
+                pool: doctrine.system_cache_pool
+            result_cache_driver:
+                type: pool
+                pool: doctrine.result_cache_pool
+
+    framework:
+        cache:
+            pools:
+                doctrine.result_cache_pool:
+                    adapter: cache.app
+                doctrine.system_cache_pool:
+                    adapter: cache.system

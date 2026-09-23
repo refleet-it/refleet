@@ -1,0 +1,401 @@
+<div class="flex flex-col gap-6">
+  <div>
+    <a
+      [routerLink]="runner()?.archivedAt ? '/dashboard/runners/archive' : '/dashboard/runners'"
+      class="text-muted-foreground text-sm hover:underline"
+      >&larr; Back to {{ runner()?.archivedAt ? 'archived runners' : 'runners' }}</a
+    >
+  </div>
+
+  @if (runner(); as runnerDetail) {
+    <div class="flex flex-wrap items-start justify-between gap-3">
+      <div class="min-w-0">
+        <div class="flex flex-wrap items-center gap-2">
+          <h1 class="text-2xl font-semibold">{{ runnerDetail.name }}</h1>
+          @if (!runnerDetail.archivedAt) {
+            <app-status-badge
+              [variant]="statusBadgeVariant(runnerDetail.status)"
+              [working]="isAgentWorking(runnerDetail.status)"
+            >
+              {{ statusLabels[runnerDetail.status] }}
+            </app-status-badge>
+          } @else {
+            <span hlmBadge variant="outline">Archived</span>
+          }
+          @if (runnerDetail.version) {
+            <span hlmBadge variant="outline" title="Runner version"
+              >v{{ runnerDetail.version }}</span
+            >
+          }
+          @if (runnerDetail.updateAvailable && !runnerDetail.archivedAt) {
+            <span hlmBadge variant="secondary" title="A newer runner version is published"
+              >Update available: v{{ runnerDetail.latestVersion }}</span
+            >
+          }
+        </div>
+      </div>
+
+      @if (!runnerDetail.archivedAt) {
+        <div class="flex flex-wrap items-center gap-2">
+          @if (runnerDetail.updateRequestedAt) {
+            <span class="text-muted-foreground text-sm"
+              >Update requested — restarting after its current jobs</span
+            >
+          } @else {
+            <button
+              hlmBtn
+              variant="outline"
+              size="sm"
+              [disabled]="
+                isRequestingUpdate() || 'offline' === runnerDetail.status || !runnerDetail.version
+              "
+              [title]="
+                runnerDetail.version
+                  ? 'Stops the runner after its current jobs so its supervisor restarts it on the published version'
+                  : 'This runner predates remote updates — update it by hand once'
+              "
+              (click)="requestUpdate()"
+            >
+              @if (isRequestingUpdate()) {
+                Requesting…
+              } @else {
+                Update
+              }
+            </button>
+          }
+          <button
+            hlmBtn
+            variant="outline"
+            size="sm"
+            [disabled]="isArchiving()"
+            (click)="archiveRunner()"
+          >
+            @if (isArchiving()) {
+              Archiving…
+            } @else {
+              Archive
+            }
+          </button>
+        </div>
+      }
+    </div>
+
+    @if (runnerDetail.archivedAt) {
+      <p class="text-muted-foreground text-sm">
+        Archived on {{ formatDate(runnerDetail.archivedAt) }}. Its history is kept, its API key has
+        been revoked, and archiving cannot be undone.
+      </p>
+    }
+
+    @if (actionError()) {
+      <p class="text-destructive text-sm">{{ actionError() }}</p>
+    }
+
+    <div class="grid gap-6 lg:grid-cols-[minmax(0,1fr)_20rem] lg:items-start">
+      <div class="flex min-w-0 flex-col gap-6">
+        <div hlmCard>
+          <div hlmCardHeader>
+            <p hlmCardTitle class="text-xl">Jobs ({{ jobsList.pagination()?.total ?? 0 }})</p>
+            <p hlmCardDescription>Qualification and change jobs claimed by this runner.</p>
+          </div>
+          <div hlmCardContent>
+            @if (jobsList.isInitialLoading()) {
+              <div class="overflow-x-auto">
+                <table class="w-full text-sm">
+                  <thead>
+                    <tr class="border-border border-b text-left">
+                      <th class="py-2 pr-4 font-medium">Kind</th>
+                      <th class="py-2 pr-4 font-medium">Source</th>
+                      <th class="py-2 pr-4 font-medium">Project</th>
+                      <th class="py-2 pr-4 font-medium">Status</th>
+                      <th class="py-2 pr-4 font-medium">Attempts</th>
+                      <th class="py-2 pr-4 font-medium">Result</th>
+                      <th class="py-2 font-medium">Claimed</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <app-table-skeleton-rows [columns]="jobsSkeletonColumns" />
+                  </tbody>
+                </table>
+              </div>
+            } @else if (jobsList.error()) {
+              <app-list-error message="Could not load jobs." (retry)="jobsList.refresh()" />
+            } @else if (0 === jobsList.items().length) {
+              <p class="text-muted-foreground text-sm">This runner has not claimed any jobs yet.</p>
+            } @else {
+              <div class="overflow-x-auto">
+                <table class="w-full text-sm">
+                  <thead>
+                    <tr class="border-border border-b text-left">
+                      <th class="py-2 pr-4 font-medium">Kind</th>
+                      <th class="py-2 pr-4 font-medium">Source</th>
+                      <th class="py-2 pr-4 font-medium">Project</th>
+                      <th class="py-2 pr-4 font-medium">Status</th>
+                      <th class="py-2 pr-4 font-medium">Attempts</th>
+                      <th class="py-2 pr-4 font-medium">Result</th>
+                      <th class="py-2 font-medium">Claimed</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    @for (job of jobsList.items(); track job.id) {
+                      <tr class="border-border border-b last:border-0">
+                        <td class="py-2 pr-4">
+                          <div class="font-medium">{{ jobKindLabels[job.kind] }}</div>
+                          <div class="text-muted-foreground text-xs">
+                            {{ jobModeLabels[job.mode] }}
+                          </div>
+                        </td>
+                        <td class="py-2 pr-4">
+                          <a [routerLink]="ownerRoute(job)" class="text-primary hover:underline">
+                            {{ job.ownerLabel }}
+                          </a>
+                        </td>
+                        <td class="py-2 pr-4">{{ job.projectName }}</td>
+                        <td class="py-2 pr-4">
+                          <app-status-badge
+                            [variant]="jobStatusBadgeVariant(job.status)"
+                            [working]="isAgentWorkingOnJob(job.status)"
+                          >
+                            {{ jobStatusLabels[job.status] }}
+                          </app-status-badge>
+                        </td>
+                        <td class="text-muted-foreground py-2 pr-4">{{ job.attemptCount }}</td>
+                        <td class="text-muted-foreground max-w-xs py-2 pr-4">
+                          <div class="truncate" [title]="resultSummary(job)">
+                            {{ resultSummary(job) }}
+                          </div>
+                        </td>
+                        <td class="text-muted-foreground py-2">{{ formatDate(job.claimedAt) }}</td>
+                      </tr>
+                    }
+                  </tbody>
+                </table>
+              </div>
+              <hlm-numbered-pagination
+                class="mt-4"
+                [(currentPage)]="jobsList.page"
+                [(itemsPerPage)]="jobsList.pageSize"
+                [totalItems]="jobsList.pagination()?.total ?? 0"
+              />
+            }
+          </div>
+        </div>
+      </div>
+
+      <aside class="order-first flex flex-col gap-4 lg:sticky lg:top-4 lg:order-last">
+        <div hlmCard>
+          <div hlmCardHeader>
+            <p hlmCardTitle>Capabilities</p>
+            <p hlmCardDescription>What this runner reported on its last heartbeat.</p>
+          </div>
+          <div hlmCardContent>
+            <dl class="flex flex-col gap-3 text-sm">
+              <div>
+                <dt class="text-muted-foreground text-xs font-medium">Agents</dt>
+                <dd class="mt-0.5">
+                  @if (runnerDetail.supportedEngines && runnerDetail.supportedEngines.length > 0) {
+                    <span class="flex flex-wrap gap-1">
+                      @for (engine of runnerDetail.supportedEngines; track engine) {
+                        <span hlmBadge variant="outline">{{ agentEngineLabels[engine] }}</span>
+                      }
+                    </span>
+                  } @else {
+                    —
+                  }
+                </dd>
+              </div>
+              <div>
+                <dt class="text-muted-foreground text-xs font-medium">Models</dt>
+                <dd class="mt-0.5">
+                  @if (runnerDetail.supportedModels && runnerDetail.supportedModels.length > 0) {
+                    <span class="flex flex-wrap gap-1">
+                      @for (model of runnerDetail.supportedModels; track model) {
+                        <span hlmBadge variant="outline">{{ model }}</span>
+                      }
+                    </span>
+                  } @else {
+                    —
+                  }
+                </dd>
+              </div>
+            </dl>
+          </div>
+        </div>
+
+        <div hlmCard>
+          <div hlmCardHeader>
+            <p hlmCardTitle>Usage</p>
+            <p hlmCardDescription>
+              @if (runnerDetail.usage; as usage) {
+                What its last agent run reported, {{ formatDate(usage.observedAt) }}.
+              } @else {
+                What its agent runs consume.
+              }
+            </p>
+          </div>
+          <div hlmCardContent>
+            @if (runnerDetail.usage; as usage) {
+              <dl class="flex flex-col gap-4 text-sm">
+                @if (usage.rateLimits && usage.rateLimits.length > 0) {
+                  @for (limit of usage.rateLimits; track limit.window) {
+                    <div>
+                      <dt class="flex items-center justify-between gap-2">
+                        <span class="text-muted-foreground text-xs font-medium">
+                          {{ rateLimitWindowLabel(limit.window) }}
+                        </span>
+                        <app-status-badge [variant]="rateLimitBadgeVariant(limit.status)">
+                          {{ rateLimitStatusLabels[limit.status] }}
+                        </app-status-badge>
+                      </dt>
+                      <dd class="mt-1">
+                        @if (null !== limit.utilization) {
+                          <div class="flex items-center gap-3">
+                            <hlm-progress [value]="percent(limit.utilization, 1)" class="w-full">
+                              <hlm-progress-indicator />
+                            </hlm-progress>
+                            <span class="text-muted-foreground text-xs whitespace-nowrap"
+                              >{{ percent(limit.utilization, 1) }}%</span
+                            >
+                          </div>
+                        }
+                        @if (limit.resetsAt) {
+                          <p class="text-muted-foreground mt-1 text-xs">
+                            Resets {{ formatDate(limit.resetsAt) }}
+                          </p>
+                        }
+                      </dd>
+                    </div>
+                  }
+                }
+                @if (usage.tokens || usage.cost) {
+                  <div>
+                    <dt class="text-muted-foreground text-xs font-medium">Last run</dt>
+                    <dd class="mt-0.5 flex flex-wrap gap-1">
+                      @if (usage.tokens; as tokens) {
+                        <span
+                          hlmBadge
+                          variant="outline"
+                          title="Input tokens, cache reads and writes included"
+                          >{{ compactNumber(tokens.input) }} in</span
+                        >
+                        <span hlmBadge variant="outline" title="Output tokens"
+                          >{{ compactNumber(tokens.output) }} out</span
+                        >
+                      }
+                      @if (usage.cost; as cost) {
+                        <span hlmBadge variant="outline">{{ formatCost(cost) }}</span>
+                      }
+                    </dd>
+                  </div>
+                }
+              </dl>
+            } @else {
+              <p class="text-muted-foreground text-sm">No agent run has reported usage yet.</p>
+            }
+          </div>
+        </div>
+
+        <div hlmCard>
+          <div hlmCardHeader>
+            <p hlmCardTitle>Details</p>
+          </div>
+          <div hlmCardContent>
+            <dl class="flex flex-col gap-3 text-sm">
+              <div>
+                <dt class="text-muted-foreground text-xs font-medium">Version</dt>
+                <dd class="mt-0.5">
+                  @if (runnerDetail.version) {
+                    {{ runnerDetail.version }}
+                    @if (runnerDetail.latestVersion && runnerDetail.updateAvailable) {
+                      <span class="text-muted-foreground">
+                        ({{ runnerDetail.latestVersion }} published)</span
+                      >
+                    }
+                  } @else {
+                    —
+                  }
+                </dd>
+              </div>
+              <div>
+                <dt class="text-muted-foreground text-xs font-medium">Last seen</dt>
+                <dd class="mt-0.5">{{ formatDate(runnerDetail.lastSeenAt) }}</dd>
+              </div>
+              <div>
+                <dt class="text-muted-foreground text-xs font-medium">Registered</dt>
+                <dd class="mt-0.5">{{ formatDate(runnerDetail.createdAt) }}</dd>
+              </div>
+              @if (runnerDetail.archivedAt) {
+                <div>
+                  <dt class="text-muted-foreground text-xs font-medium">Archived</dt>
+                  <dd class="mt-0.5">{{ formatDate(runnerDetail.archivedAt) }}</dd>
+                </div>
+              }
+            </dl>
+          </div>
+        </div>
+      </aside>
+    </div>
+  } @else if (isLoading()) {
+    <div class="flex flex-wrap items-start justify-between gap-3">
+      <div>
+        <span hlmSkeleton class="block h-8 w-64"></span>
+      </div>
+      <div class="flex items-center gap-2">
+        <span hlmSkeleton class="h-8 w-20"></span>
+      </div>
+    </div>
+
+    <div class="grid gap-6 lg:grid-cols-[minmax(0,1fr)_20rem] lg:items-start">
+      <div hlmCard class="min-w-0">
+        <div hlmCardHeader>
+          <span hlmSkeleton class="block h-6 w-24"></span>
+          <span hlmSkeleton class="mt-1 block h-4 w-72"></span>
+        </div>
+        <div hlmCardContent>
+          <div class="overflow-x-auto">
+            <table class="w-full text-sm">
+              <thead>
+                <tr class="border-border border-b text-left">
+                  <th class="py-2 pr-4 font-medium">Kind</th>
+                  <th class="py-2 pr-4 font-medium">Source</th>
+                  <th class="py-2 pr-4 font-medium">Project</th>
+                  <th class="py-2 pr-4 font-medium">Status</th>
+                  <th class="py-2 pr-4 font-medium">Attempts</th>
+                  <th class="py-2 pr-4 font-medium">Result</th>
+                  <th class="py-2 font-medium">Claimed</th>
+                </tr>
+              </thead>
+              <tbody>
+                <app-table-skeleton-rows [columns]="jobsSkeletonColumns" />
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <div class="order-first flex flex-col gap-4 lg:order-last">
+        <div hlmCard>
+          <div hlmCardHeader>
+            <span hlmSkeleton class="block h-5 w-24"></span>
+            <span hlmSkeleton class="mt-1 block h-4 w-48"></span>
+          </div>
+          <div hlmCardContent class="flex flex-col gap-3">
+            <span hlmSkeleton class="h-5 w-32"></span>
+            <span hlmSkeleton class="h-5 w-40"></span>
+          </div>
+        </div>
+        <div hlmCard>
+          <div hlmCardHeader>
+            <span hlmSkeleton class="block h-5 w-20"></span>
+          </div>
+          <div hlmCardContent class="flex flex-col gap-3">
+            <span hlmSkeleton class="h-4 w-40"></span>
+            <span hlmSkeleton class="h-4 w-40"></span>
+          </div>
+        </div>
+      </div>
+    </div>
+  } @else if (loadError()) {
+    <p class="text-destructive text-sm">{{ loadError() }}</p>
+  }
+</div>

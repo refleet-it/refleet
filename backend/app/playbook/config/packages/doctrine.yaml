@@ -1,0 +1,35 @@
+# The playbook context owns one connection and one entity manager. They live here so the
+# application that serves this context declares its own database wiring instead of
+# inheriting all of them — see docs/adr/0001-multiple-kernels.md.
+doctrine:
+    dbal:
+        connections:
+            playbook:
+                url: '%env(resolve:DATABASE_URL)%'
+                profiling_collect_backtrace: false
+                schema_filter: ~^(playbook\.|public\.doctrine_migration_versions)~
+                options:
+                    1002: "SET search_path TO playbook, public"
+    orm:
+        default_entity_manager: playbook
+        entity_managers:
+            playbook:
+                connection: playbook
+                naming_strategy: doctrine.orm.naming_strategy.underscore_number_aware
+                metadata_cache_driver:
+                    type: pool
+                    pool: cache.app
+                mappings:
+                    Playbook:
+                        type: attribute
+                        is_bundle: false
+                        dir: '%kernel.project_dir%/app/playbook/src'
+                        prefix: 'App\Playbook'
+                        alias: Playbook
+
+when@test:
+    doctrine:
+        dbal:
+            connections:
+                playbook:
+                    dbname_suffix: '_test%env(default::TEST_TOKEN)%'

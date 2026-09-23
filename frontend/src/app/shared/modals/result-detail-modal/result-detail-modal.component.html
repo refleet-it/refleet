@@ -1,0 +1,18 @@
+<div class="flex flex-col gap-4">
+  <div class="flex flex-col gap-1">
+    <h2 class="text-lg font-semibold">{{ context.title }}</h2>
+    @if (context.subtitle) {
+      <p class="text-muted-foreground text-sm">{{ context.subtitle }}</p>
+    }
+  </div>
+
+  <div class="border-border max-h-[60vh] overflow-y-auto rounded-lg border p-3">
+    <pre class="text-foreground font-sans text-sm whitespace-pre-wrap break-words">{{
+      context.body
+    }}</pre>
+  </div>
+
+  <div class="flex justify-end">
+    <button hlmBtn variant="ghost" type="button" (click)="close()">Close</button>
+  </div>
+</div>

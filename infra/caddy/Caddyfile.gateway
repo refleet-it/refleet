@@ -1,0 +1,120 @@
+{
+    auto_https off
+    admin localhost:2019
+}
+
+# The one public entrypoint. Routes each /api/* path to the container that owns it — see
+# docs/adr/0001-multiple-kernels.md and compose.yml's comment on why every backend-<context>
+# container can still run the exact same Caddyfile unchanged. /internal/* is deliberately
+# absent here: those endpoints are reached container-to-container by service DNS name
+# (App\Shared\Infrastructure\Http\InternalApiClient), never through this gateway.
+http://refleet.local, http://localhost, http://caddy-gateway {
+
+    log {
+        format json {
+            time_format "iso8601"
+        }
+    }
+
+    # Cross-cutting routes every context serves identically (see backend/src/Shared/Infrastructure/Http/)
+    # — round-robin across all nine so none of them is a single point of failure for a
+    # plain health/metrics/doc probe.
+    handle /api/health {
+        reverse_proxy backend-file:80 backend-identity:80 backend-notification:80 backend-organization:80 backend-playbook:80 backend-project:80 backend-qualification:80 backend-runner:80 backend-shift:80
+    }
+    handle /api/instance {
+        reverse_proxy backend-file:80 backend-identity:80 backend-notification:80 backend-organization:80 backend-playbook:80 backend-project:80 backend-qualification:80 backend-runner:80 backend-shift:80
+    }
+    handle /api/client-errors {
+        reverse_proxy backend-file:80 backend-identity:80 backend-notification:80 backend-organization:80 backend-playbook:80 backend-project:80 backend-qualification:80 backend-runner:80 backend-shift:80
+    }
+    handle /api/metrics {
+        reverse_proxy backend-file:80 backend-identity:80 backend-notification:80 backend-organization:80 backend-playbook:80 backend-project:80 backend-qualification:80 backend-runner:80 backend-shift:80
+    }
+    handle /api/doc* {
+        reverse_proxy backend-file:80 backend-identity:80 backend-notification:80 backend-organization:80 backend-playbook:80 backend-project:80 backend-qualification:80 backend-runner:80 backend-shift:80
+    }
+
+    # Identity
+    handle /api/identity/* {
+        reverse_proxy backend-identity:80
+    }
+    handle /api/account/* {
+        reverse_proxy backend-identity:80
+    }
+
+    # Organization (includes /api/runner/gitlab-credentials — a Runner-shaped path the
+    # GitLabConnection module owns; it must be matched before the broader /api/runner/*
+    # prefix below, which belongs to the Runner context)
+    handle /api/runner/gitlab-credentials {
+        reverse_proxy backend-organization:80
+    }
+    handle /api/organizations* {
+        reverse_proxy backend-organization:80
+    }
+    handle /api/gitlab/* {
+        reverse_proxy backend-organization:80
+    }
+
+    # Project
+    handle /api/projects* {
+        reverse_proxy backend-project:80
+    }
+
+    # Playbook
+    handle /api/playbooks* {
+        reverse_proxy backend-playbook:80
+    }
+
+    # Qualification
+    handle /api/qualifications* {
+        reverse_proxy backend-qualification:80
+    }
+
+    # Runner
+    handle /api/runners* {
+        reverse_proxy backend-runner:80
+    }
+    handle /api/runner/* {
+        reverse_proxy backend-runner:80
+    }
+
+    # Shift
+    handle /api/shifts* {
+        reverse_proxy backend-shift:80
+    }
+    handle /api/webhooks/gitlab/* {
+        reverse_proxy backend-shift:80
+    }
+
+    # File
+    handle /api/files* {
+        reverse_proxy backend-file:80
+    }
+    handle /api/storage/* {
+        reverse_proxy backend-file:80
+    }
+    handle /uploads/* {
+        reverse_proxy backend-file:80
+    }
+
+    # Notification
+    handle /api/notifications/* {
+        reverse_proxy backend-notification:80
+    }
+
+    # Frontend - proxy to Vite dev server for hot-reload
+    handle {
+        reverse_proxy frontend:4200 {
+            header_up Host {upstream_hostport}
+            header_up X-Real-IP {remote_host}
+            header_up X-Forwarded-For {remote_host}
+            header_up X-Forwarded-Proto {scheme}
+        }
+    }
+}
+
+# Metrics endpoint (optional)
+:9253 {
+    metrics
+}

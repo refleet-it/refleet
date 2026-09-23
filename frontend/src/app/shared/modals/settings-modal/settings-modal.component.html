@@ -1,0 +1,326 @@
+<div class="settings-modal" data-testid="settings-modal">
+  <hlm-dialog-header>
+    <h3 hlmDialogTitle>Settings</h3>
+  </hlm-dialog-header>
+
+  <div class="settings-modal-body">
+    <!-- Mobile dropdown -->
+    <div class="mobile-section-selector">
+      <label class="sr-only" for="settings-mobile-section">Settings section</label>
+      <select
+        id="settings-mobile-section"
+        class="w-full rounded-lg border border-input bg-transparent px-2.5 py-1.5 text-sm"
+        [ngModel]="activeSection"
+        (change)="onSectionSelectChange($event)"
+      >
+        @for (section of sections; track section.value) {
+          <option [value]="section.value">
+            {{ section.label }}
+          </option>
+        }
+      </select>
+    </div>
+
+    <!-- Desktop sidebar with sections -->
+    <div class="settings-sidebar">
+      <nav class="sidebar-nav">
+        <button
+          hlmBtn
+          [variant]="activeSection === 'security' ? 'default' : 'ghost'"
+          class="w-full justify-start"
+          (click)="changeSection('security')"
+          data-testid="security-section-button"
+        >
+          <ng-icon name="lucideShield" />
+          <span>Security</span>
+        </button>
+
+        <button
+          hlmBtn
+          [variant]="activeSection === 'profile' ? 'default' : 'ghost'"
+          class="w-full justify-start"
+          (click)="changeSection('profile')"
+        >
+          <ng-icon name="lucideUser" />
+          <span>Profile</span>
+        </button>
+
+        <button
+          hlmBtn
+          [variant]="activeSection === 'notifications' ? 'default' : 'ghost'"
+          class="w-full justify-start"
+          (click)="changeSection('notifications')"
+        >
+          <ng-icon name="lucideBell" />
+          <span>Notifications</span>
+        </button>
+
+        <button
+          hlmBtn
+          [variant]="activeSection === 'developer' ? 'default' : 'ghost'"
+          class="w-full justify-start"
+          (click)="changeSection('developer')"
+          data-testid="developer-section-button"
+        >
+          <ng-icon name="lucideCode" />
+          <span>Developer</span>
+        </button>
+      </nav>
+    </div>
+
+    <!-- Main content -->
+    <div class="settings-content">
+      <!-- Security Section -->
+      @if (activeSection === 'security') {
+        <div class="content-section">
+          <h2 class="section-title">Security</h2>
+          <p class="section-description">Manage your password and account security settings.</p>
+
+          <!-- Change Password Form -->
+          <form
+            [formGroup]="passwordForm"
+            (ngSubmit)="onSubmitPasswordChange()"
+            class="password-form"
+          >
+            <h3 class="form-title">Change Password</h3>
+
+            <!-- Current Password -->
+            <div class="form-field">
+              <label for="currentPassword" class="field-label"> Current Password </label>
+              <app-password-input
+                inputId="currentPassword"
+                formControlName="currentPassword"
+                placeholder="Enter current password"
+                testId="current-password-input"
+              />
+              @if (getFieldError('currentPassword')) {
+                <small class="field-error" data-testid="current-password-error">
+                  {{ getFieldError('currentPassword') }}
+                </small>
+              }
+            </div>
+
+            <!-- New Password -->
+            <div class="form-field">
+              <label for="newPassword" class="field-label"> New Password </label>
+              <app-password-input
+                inputId="newPassword"
+                formControlName="newPassword"
+                placeholder="Enter new password"
+                testId="new-password-input"
+              />
+              @if (getFieldError('newPassword')) {
+                <small class="field-error" data-testid="new-password-error">
+                  {{ getFieldError('newPassword') }}
+                </small>
+              }
+            </div>
+
+            <!-- Confirm Password -->
+            <div class="form-field">
+              <label for="confirmPassword" class="field-label"> Confirm Password </label>
+              <app-password-input
+                inputId="confirmPassword"
+                formControlName="confirmPassword"
+                placeholder="Confirm new password"
+                testId="confirm-password-input"
+              />
+              @if (getFieldError('confirmPassword')) {
+                <small class="field-error" data-testid="confirm-password-error">
+                  {{ getFieldError('confirmPassword') }}
+                </small>
+              }
+            </div>
+
+            <!-- Form Error -->
+            @if (getFormError()) {
+              <small class="form-error" data-testid="form-error">
+                {{ getFormError() }}
+              </small>
+            }
+
+            <!-- Submit Button -->
+            <div class="form-actions">
+              <button
+                hlmBtn
+                type="submit"
+                variant="default"
+                [disabled]="isSubmitting"
+                data-testid="change-password-button"
+              >
+                Change Password
+              </button>
+            </div>
+          </form>
+        </div>
+      }
+
+      <!-- Profile Section -->
+      @if (activeSection === 'profile') {
+        <div class="content-section">
+          <h2 class="section-title">User Profile</h2>
+          <p class="section-description">Manage your personal data and account information.</p>
+          <p class="placeholder-text">This section will be available soon.</p>
+        </div>
+      }
+
+      <!-- Notifications Section -->
+      @if (activeSection === 'notifications') {
+        <div class="content-section">
+          <h2 class="section-title">Notifications</h2>
+          <p class="section-description">
+            Choose which channels you receive each type of notification on.
+          </p>
+
+          @if (isLoadingNotificationPreferences()) {
+            <p class="placeholder-text">Loading…</p>
+          } @else {
+            <div class="table-scroll">
+              <table class="api-key-table">
+                <thead>
+                  <tr>
+                    <th>Notification</th>
+                    <th>Email</th>
+                    <th>In-app</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  @for (
+                    preference of notificationPreferences();
+                    track preference.notificationType
+                  ) {
+                    <tr>
+                      <td>{{ preference.label }}</td>
+                      <td>
+                        <hlm-checkbox
+                          [checked]="isChannelEnabled(preference, 'email')"
+                          [disabled]="updatingNotificationType() === preference.notificationType"
+                          (checkedChange)="toggleChannel(preference, 'email')"
+                        />
+                      </td>
+                      <td>
+                        <hlm-checkbox
+                          [checked]="isChannelEnabled(preference, 'in_app')"
+                          [disabled]="updatingNotificationType() === preference.notificationType"
+                          (checkedChange)="toggleChannel(preference, 'in_app')"
+                        />
+                      </td>
+                    </tr>
+                  }
+                </tbody>
+              </table>
+            </div>
+          }
+        </div>
+      }
+
+      <!-- Developer Section -->
+      @if (activeSection === 'developer') {
+        <div class="content-section">
+          <h2 class="section-title">Developer</h2>
+          <p class="section-description">
+            Generate API keys so external tools — like an AI assistant connected through the
+            product's MCP server — can manage your change orders and runners on your behalf.
+          </p>
+
+          @if (createdApiKey(); as created) {
+            <div class="new-key-banner">
+              <p class="new-key-banner-title">Copy your new API key now</p>
+              <p class="new-key-banner-description">
+                This is the only time you'll see the full key — it won't be shown again.
+              </p>
+              <div class="new-key-banner-token">
+                <code>{{ created.token }}</code>
+                <button
+                  hlmBtn
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  (click)="copyNewKeyToken(created.token)"
+                >
+                  @if (newKeyCopied()) {
+                    Copied
+                  } @else {
+                    Copy
+                  }
+                </button>
+              </div>
+              <button hlmBtn type="button" variant="ghost" size="sm" (click)="dismissNewApiKey()">
+                Done
+              </button>
+            </div>
+          }
+
+          <form class="api-key-form" (ngSubmit)="createApiKey()">
+            <div class="api-key-form-field">
+              <hlm-field>
+                <label hlmLabel for="api-key-name">Key name</label>
+                <input
+                  hlmInput
+                  id="api-key-name"
+                  type="text"
+                  name="apiKeyName"
+                  [ngModel]="newKeyName()"
+                  (ngModelChange)="newKeyName.set($event)"
+                  placeholder="e.g. My MCP server"
+                  class="w-full"
+                />
+              </hlm-field>
+            </div>
+            <button hlmBtn type="submit" [disabled]="isCreatingApiKey() || !newKeyName().trim()">
+              Generate new key
+            </button>
+          </form>
+
+          @if (isLoadingApiKeys()) {
+            <p class="placeholder-text">Loading…</p>
+          } @else if (apiKeys().length > 0) {
+            <div class="table-scroll">
+              <table class="api-key-table">
+                <thead>
+                  <tr>
+                    <th>Name</th>
+                    <th>Key</th>
+                    <th>Last used</th>
+                    <th>Status</th>
+                    <th></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  @for (key of apiKeys(); track key.id) {
+                    <tr>
+                      <td>{{ key.name }}</td>
+                      <td>
+                        <code>{{ key.prefix }}&hellip;</code>
+                      </td>
+                      <td>
+                        {{ key.lastUsedAt ? (key.lastUsedAt | date: 'mediumDate') : 'Never' }}
+                      </td>
+                      <td>{{ key.revokedAt ? 'Revoked' : 'Active' }}</td>
+                      <td class="api-key-row-actions">
+                        @if (!key.revokedAt) {
+                          <button
+                            hlmBtn
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            [disabled]="revokingApiKeyId() === key.id"
+                            (click)="revokeApiKey(key)"
+                          >
+                            Revoke
+                          </button>
+                        }
+                      </td>
+                    </tr>
+                  }
+                </tbody>
+              </table>
+            </div>
+          } @else {
+            <p class="placeholder-text">No API keys yet.</p>
+          }
+        </div>
+      }
+    </div>
+  </div>
+</div>

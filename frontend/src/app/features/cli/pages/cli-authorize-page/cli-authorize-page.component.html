@@ -1,0 +1,90 @@
+<div class="flex min-h-screen items-center justify-center p-4">
+  <div hlmCard class="w-full max-w-md" data-testid="cli-authorize-page">
+    @switch (state()) {
+      @case ('loading') {
+        <div hlmCardContent class="flex flex-col items-center gap-4 py-10 text-center">
+          <ng-icon name="lucideLoader2" class="animate-spin text-primary" size="2.5rem" />
+          <p class="text-muted-foreground">Checking the login request…</p>
+        </div>
+      }
+      @case ('ready') {
+        <div hlmCardHeader>
+          <p hlmCardTitle class="flex items-center gap-2 text-xl">
+            <ng-icon name="lucideTerminal" />
+            Authorize the Refleet CLI?
+          </p>
+          <p hlmCardDescription>
+            <code class="rounded bg-muted px-1.5 py-0.5 text-sm">refleet login</code> was started on
+            <strong class="text-foreground">{{ authorization()?.runnerName }}</strong>
+            and is waiting for your answer.
+          </p>
+        </div>
+        <div hlmCardContent class="flex flex-col gap-4">
+          <p class="text-sm text-muted-foreground">
+            Approving creates a new API key for
+            <strong class="text-foreground">{{ accountEmail() ?? 'your account' }}</strong>
+            and hands it to that terminal, so a runner there can work on your behalf. Only approve
+            if you started this yourself — otherwise deny it.
+          </p>
+          <div class="flex flex-col gap-2 sm:flex-row">
+            <button
+              hlmBtn
+              type="button"
+              class="w-full sm:flex-1"
+              [disabled]="isSubmitting()"
+              (click)="approve()"
+              data-testid="cli-approve-button"
+            >
+              @if (isSubmitting()) {
+                <ng-icon name="lucideLoader2" class="animate-spin" />
+              } @else {
+                <ng-icon name="lucideCircleCheck" />
+              }
+              Approve
+            </button>
+            <button
+              hlmBtn
+              type="button"
+              variant="outline"
+              class="w-full sm:flex-1"
+              [disabled]="isSubmitting()"
+              (click)="deny()"
+              data-testid="cli-deny-button"
+            >
+              <ng-icon name="lucideCircleX" />
+              Deny
+            </button>
+          </div>
+        </div>
+      }
+      @case ('approved') {
+        <div hlmCardContent class="flex flex-col items-center gap-4 py-10 text-center">
+          <ng-icon name="lucideCircleCheck" class="text-primary" size="3.5rem" />
+          <h2 class="text-xl font-semibold">You're all set</h2>
+          <p class="text-muted-foreground">
+            The CLI on <strong class="text-foreground">{{ authorization()?.runnerName }}</strong>
+            is logged in. You can close this tab and go back to your terminal.
+          </p>
+        </div>
+      }
+      @case ('denied') {
+        <div hlmCardContent class="flex flex-col items-center gap-4 py-10 text-center">
+          <ng-icon name="lucideCircleX" class="text-muted-foreground" size="3.5rem" />
+          <h2 class="text-xl font-semibold">Login denied</h2>
+          <p class="text-muted-foreground">
+            Nothing was granted. If that request wasn't yours, consider changing your password.
+          </p>
+        </div>
+      }
+      @case ('error') {
+        <div hlmCardContent class="flex flex-col items-center gap-4 py-10 text-center">
+          <ng-icon name="lucideTriangleAlert" class="text-destructive" size="3.5rem" />
+          <h2 class="text-xl font-semibold">Can't authorize this request</h2>
+          <p class="text-muted-foreground" data-testid="cli-authorize-error">
+            {{ errorMessage() }}
+          </p>
+        </div>
+      }
+    }
+  </div>
+</div>

@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100.457 96" role="img" aria-label="Refleet">
+  <g transform="translate(50.2285 48)">
+    <polygon points="0,-17 14.7224,-8.5 14.7224,8.5 0,17 -14.7224,8.5 -14.7224,-8.5" fill="#000000"/>
+    <polygon points="0,-17 14.7224,-8.5 14.7224,8.5 0,17 -14.7224,8.5 -14.7224,-8.5" transform="translate(17.3205 -30)" fill="#000000"/>
+    <polygon points="0,-17 14.7224,-8.5 14.7224,8.5 0,17 -14.7224,8.5 -14.7224,-8.5" transform="translate(-17.3205 -30)" fill="#8F8F8F"/>
+    <polygon points="0,-17 14.7224,-8.5 14.7224,8.5 0,17 -14.7224,8.5 -14.7224,-8.5" transform="translate(34.6410 0)" fill="#8F8F8F"/>
+    <polygon points="0,-17 14.7224,-8.5 14.7224,8.5 0,17 -14.7224,8.5 -14.7224,-8.5" transform="translate(-34.6410 0)" fill="#000000"/>
+    <polygon points="0,-17 14.7224,-8.5 14.7224,8.5 0,17 -14.7224,8.5 -14.7224,-8.5" transform="translate(17.3205 30)" fill="#8F8F8F"/>
+    <polygon points="0,-17 14.7224,-8.5 14.7224,8.5 0,17 -14.7224,8.5 -14.7224,-8.5" transform="translate(-17.3205 30)" fill="#000000"/>
+  </g>
+</svg>

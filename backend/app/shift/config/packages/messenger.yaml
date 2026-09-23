@@ -1,0 +1,26 @@
+framework:
+    messenger:
+        buses:
+            command.bus:
+                middleware:
+                    - 'App\Shared\Infrastructure\Telemetry\TraceBoundedContextMiddleware'
+                    - doctrine_transaction: ['shift']
+
+        transports:
+            to_shift:
+                dsn: '%env(MESSENGER_TRANSPORT_DSN)%?queue_name=to_shift'
+                serializer: 'App\Shift\Shift\Infrastructure\Bus\ShiftMessageSerializer'
+
+            # Producer-only — see App\Shared\Infrastructure\Messenger\OutboundMessageSerializer.
+            to_notification:
+                dsn: '%env(MESSENGER_TRANSPORT_DSN)%?queue_name=to_notification'
+                serializer: 'App\Shared\Infrastructure\Messenger\OutboundMessageSerializer'
+
+            to_runner:
+                dsn: '%env(MESSENGER_TRANSPORT_DSN)%?queue_name=to_runner'
+                serializer: 'App\Shared\Infrastructure\Messenger\OutboundMessageSerializer'
+
+        routing:
+            'App\Shift\Shift\Infrastructure\Bus\ShiftFinished\ShiftFinishedMessage': to_notification
+            'App\Shift\Shift\Infrastructure\Bus\RunnerJobRequested\RunnerJobRequestedMessage': to_runner
+            'App\Shift\Shift\Infrastructure\Bus\OwnerJobsCancellationRequested\OwnerJobsCancellationRequestedMessage': to_runner

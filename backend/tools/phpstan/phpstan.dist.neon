@@ -1,0 +1,53 @@
+parameters:
+	level: 9
+	paths:
+		- ../../src
+		- ../../app
+		- ../../migrations
+		- ../../tests/Architecture
+		- rules
+	# Contexts keep their tests under app/<context>/tests. Test code has never been in
+	# PHPStan's scope here — tests/Architecture is the sole exception — so the move of the
+	# test suites under app/ must not quietly drag them in.
+	excludePaths:
+		analyse:
+			- ../../app/*/tests/*
+	bootstrapFiles:
+		- ../../vendor/autoload.php
+	symfony:
+		containerXmlPath: ../../var/cache/monolith/test/App_KernelTestDebugContainer.xml
+	# Miscellaneous parameters
+	tipsOfTheDay: false
+	treatPhpDocTypesAsCertain: false
+	# Rules parameters
+	checkUninitializedProperties: true
+	reportPossiblyNonexistentGeneralArrayOffset: true
+	reportPossiblyNonexistentConstantArrayOffset: true
+	checkMissingOverrideMethodAttribute: true
+includes:
+	# Strict Stan
+	- ../../vendor/phpstan/phpstan-strict-rules/rules.neon
+	# Assert
+	- ../../vendor/phpstan/phpstan-beberlei-assert/extension.neon
+	# Symfony
+	- ../../vendor/phpstan/phpstan-symfony/extension.neon
+	# PHPUnit
+	- ../../vendor/phpstan/phpstan-phpunit/extension.neon
+	- ../../vendor/phpstan/phpstan-phpunit/rules.neon
+	# PHPat - Architecture Tests
+	- ../../vendor/phpat/phpat/extension.neon
+	- phpat.neon
+	# Disallowed calls
+	- ../../vendor/spaze/phpstan-disallowed-calls/extension.neon
+	- ../../vendor/spaze/phpstan-disallowed-calls/disallowed-dangerous-calls.neon
+	- ../../vendor/spaze/phpstan-disallowed-calls/disallowed-execution-calls.neon
+	- ../../vendor/spaze/phpstan-disallowed-calls/disallowed-insecure-calls.neon
+	- ../../vendor/spaze/phpstan-disallowed-calls/disallowed-loose-calls.neon
+	- disallowed-calls.neon
+
+services:
+	-
+		class: App\PHPStan\Rules\ContextIsolationRule
+		tags:
+			- phpstan.rules.rule
+

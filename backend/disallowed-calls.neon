@@ -1,0 +1,17 @@
+parameters:
+    disallowedFunctionCalls:
+        -
+            function: 'dump()'
+            message: 'use logger instead'
+        -
+            function: 'dd()'
+            message: 'use logger instead'
+
+    disallowedConstants:
+        -
+            constant: 'DATE_ISO8601'
+            message: 'use DATE_ATOM instead'
+        -
+            class: 'DateTimeInterface'
+            constant: 'ISO8601'
+            message: 'use DateTimeInterface::ATOM instead'

@@ -1,0 +1,66 @@
+services:
+    _defaults:
+        autowire: true
+        autoconfigure: true
+
+    App\Identity\:
+        resource: '../src/'
+        exclude:
+            - '../src/Account/Infrastructure/Api/'
+
+    App\Identity\Account\Infrastructure\Api\:
+        resource: '../src/Account/Infrastructure/Api/**/*Controller.php'
+        tags: ['controller.service_arguments']
+
+    App\Identity\Account\Infrastructure\Persistence\:
+        resource: '../src/Account/Infrastructure/Persistence/'
+        bind:
+            Doctrine\ORM\EntityManagerInterface: '@doctrine.orm.identity_entity_manager'
+
+    App\Identity\RefreshToken\Infrastructure\Persistence\:
+        resource: '../src/RefreshToken/Infrastructure/Persistence/'
+        bind:
+            Doctrine\ORM\EntityManagerInterface: '@doctrine.orm.identity_entity_manager'
+
+    # Ports owned by this context, consumed by others through Shared
+    App\Shared\Domain\Service\UserEmailProviderInterface:
+        alias: App\Identity\Account\Infrastructure\Service\UserEmailProvider
+
+    App\Shared\Domain\Service\InvitedAccountRegistrarInterface:
+        alias: App\Identity\Account\Infrastructure\Service\InvitedAccountRegistrar
+
+    App\Shared\Domain\Service\ApiKeyValidatorInterface:
+        alias: App\Identity\Account\Infrastructure\Security\DoctrineApiKeyValidator
+
+    # Registers the shared domain-event dispatcher for this context's own connection only —
+    # see App\Shared\Application\Event\DomainEventDispatcher.
+    App\Shared\Application\Event\DomainEventDispatcher:
+        tags:
+            - { name: 'doctrine.event_listener', event: 'preFlush', connection: 'identity', priority: 500 }
+
+when@dev:
+    services:
+        _defaults:
+            autowire: true
+            autoconfigure: true
+
+        # Lives here rather than in the shared config/services.yaml because this file is loaded
+        # after it — the App\Identity\ resource above would otherwise re-register the class with
+        # a default definition and drop this argument.
+        App\Identity\Account\Infrastructure\Security\SensitiveRouteProfilerMatcher:
+            arguments:
+                $profilerEnabled: '%env(bool:PROFILER_ENABLED)%'
+
+        # The override belongs with the matcher it consumes: an application booted without this
+        # context would otherwise ask the container for a service that is not registered in it.
+        profiler_listener:
+            class: Symfony\Component\HttpKernel\EventListener\ProfilerListener
+            arguments:
+                - '@profiler'
+                - '@request_stack'
+                - '@App\Identity\Account\Infrastructure\Security\SensitiveRouteProfilerMatcher'
+                - '%profiler_listener.only_exceptions%'
+                - '%profiler_listener.only_main_requests%'
+            tags:
+                - kernel.event_subscriber
+                - { name: kernel.reset, method: '?reset' }

@@ -1,0 +1,59 @@
+# Edge proxy for a self-hosted Refleet.
+#
+# Unlike the multi-container topology this project runs in production (one container per
+# bounded context, routed by infra/caddy/Caddyfile.gateway), a self-hosted instance runs a
+# single backend booted with APP_ID=monolith, which serves every context's routes from one
+# process. So there is nothing to route here beyond "API or application".
+#
+# One name serves both: no second DNS record, no CORS to configure.
+
+{
+	email {$ACME_EMAIL}
+	admin off
+}
+
+{$APP_DOMAIN} {
+	log {
+		output stdout
+		format json {
+			time_format "iso8601"
+		}
+	}
+
+	header {
+		-Server
+		X-Frame-Options "SAMEORIGIN"
+		X-Content-Type-Options "nosniff"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		Permissions-Policy "geolocation=(), microphone=(), camera=(self)"
+	}
+
+	encode zstd gzip
+
+	# The API, uploaded files, and the images the notification emails link back to.
+	# /internal/* is absent on purpose: the monolith resolves every cross-context port
+	# in-process, so those endpoints are never called over HTTP here.
+	# /api/metrics is absent too — it is Prometheus scrape data, not a public endpoint.
+	handle /api/metrics {
+		respond 404
+	}
+
+	handle /api/* {
+		reverse_proxy backend:8080
+	}
+
+	handle /uploads/* {
+		header Cache-Control "public, max-age=31536000, immutable"
+		reverse_proxy backend:8080
+	}
+
+	handle /notifications/* {
+		header Cache-Control "public, max-age=31536000, immutable"
+		reverse_proxy backend:8080
+	}
+
+	# Everything else is the application, server-rendered by Node.
+	handle {
+		reverse_proxy frontend:4000
+	}
+}

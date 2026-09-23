@@ -1,0 +1,70 @@
+{
+    auto_https off
+    admin localhost:2019
+
+    frankenphp {
+        num_threads 4
+        worker {
+            file /app/public/worker.php
+            num 2
+            env APP_RUNTIME Runtime\FrankenPhpSymfony\Runtime
+        }
+    }
+}
+
+# Per-context container: serves only its own /api/* (whatever this APP_ID's kernel actually
+# routes — see docs/adr/0001-multiple-kernels.md) and /internal/*. Never reached directly by
+# a browser; caddy-gateway (infra/caddy/Caddyfile.gateway) is the one public entrypoint and
+# routes each path to the right container by service DNS name, and other backend-<context>
+# containers reach /internal/* here the same way (App\Shared\Infrastructure\Http\InternalApiClient).
+# Bound to :80 rather than a hostname list since nothing addresses this container by a
+# human-facing name.
+:80 {
+
+    # JSON logs with trace correlation
+    log {
+        format json {
+            time_format "iso8601"
+        }
+    }
+
+    # API endpoints - served by FrankenPHP
+    handle /api/* {
+        root * /app/public
+        encode gzip
+        php_server
+    }
+
+    # Container-to-container calls, gated by the `internal` firewall (X-Internal-Token) —
+    # see App\Shared\Infrastructure\Http\InternalApiClient and
+    # docs/adr/0001-multiple-kernels.md.
+    handle /internal/* {
+        root * /app/public
+        php_server
+    }
+
+    # Uploads - served by FrankenPHP (legacy, for local filesystem storage) — only meaningful
+    # on backend-file, harmless elsewhere since no other context has anything under it.
+    handle /uploads/* {
+        header Cache-Control "public, max-age=31536000, immutable"
+        root * /app/public
+        encode gzip
+        file_server
+    }
+
+    # Symfony Web Profiler - served by FrankenPHP
+    handle /_wdt/* {
+        root * /app/public
+        php_server
+    }
+
+    handle /_profiler/* {
+        root * /app/public
+        php_server
+    }
+}
+
+# Metrics endpoint (optional)
+:9253 {
+    metrics
+}

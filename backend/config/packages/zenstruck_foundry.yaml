@@ -1,0 +1,42 @@
+when@dev:
+    # See full configuration: https://symfony.com/bundles/ZenstruckFoundryBundle/current/index.html#full-default-bundle-configuration
+    zenstruck_foundry:
+        enable_auto_refresh_with_lazy_objects: true
+        persistence:
+            # Flush only once per call of `PersistentObjectFactory::create()`
+            flush_once: true
+
+when@test:
+    zenstruck_foundry:
+        enable_auto_refresh_with_lazy_objects: true
+        # Runs right after the schema reset, while DamaDatabaseResetter still has static
+        # connections off — the only window where the messenger transport table can be created
+        # outside a test transaction. See SetUpMessengerTransports for why that matters.
+        global_state:
+            - 'App\Tests\Helpers\Messenger\SetUpMessengerTransports'
+        persistence:
+            # Flush only once per call of `PersistentObjectFactory::create()`
+            flush_once: true
+        orm:
+            reset:
+                # The project does not define an ORM manager named "default".
+                connections:
+                    - identity
+                    - file
+                    - notification
+                    - organization
+                    - project
+                    - runner
+                    - qualification
+                    - shift
+                    - playbook
+                entity_managers:
+                    - identity
+                    - file
+                    - notification
+                    - organization
+                    - project
+                    - runner
+                    - qualification
+                    - shift
+                    - playbook

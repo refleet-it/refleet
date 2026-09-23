@@ -1,0 +1,37 @@
+# Standalone compose file for the auto-detecting agent fleet runner (claude + kiro).
+# Copy .env.dist to .env, fill in ANTHROPIC_API_KEY and/or KIRO_API_KEY for whichever
+# agent(s) you actually have installed, then run from this directory:
+#   docker compose up --build
+
+services:
+    runner:
+        build: .
+        environment:
+            ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+            KIRO_API_KEY: ${KIRO_API_KEY:-}
+            RUNNER_NAME: ${RUNNER_NAME:-local-runner-01}
+            REFLEET_API_URL: ${REFLEET_API_URL:-}
+            REFLEET_API_KEY: ${REFLEET_API_KEY:-}
+            HEARTBEAT_INTERVAL_SECONDS: ${HEARTBEAT_INTERVAL_SECONDS:-30}
+            POLL_INTERVAL_SECONDS: ${POLL_INTERVAL_SECONDS:-10}
+            WORKSPACE_CACHE_DIR: /workspace/cache
+            WORKSPACE_CACHE_MAX_SIZE_MB: ${WORKSPACE_CACHE_MAX_SIZE_MB:-5120}
+            CLAUDE_MODEL: ${CLAUDE_MODEL:-}
+            CLAUDE_PERMISSION_MODE: ${CLAUDE_PERMISSION_MODE:-}
+            CLAUDE_ALLOWED_TOOLS: ${CLAUDE_ALLOWED_TOOLS:-}
+            CLAUDE_QUALIFICATION_MODEL: ${CLAUDE_QUALIFICATION_MODEL:-}
+            CLAUDE_QUALIFICATION_ALLOWED_TOOLS: ${CLAUDE_QUALIFICATION_ALLOWED_TOOLS:-}
+            CLAUDE_ADD_DIRS: ${CLAUDE_ADD_DIRS:-}
+            # Defaults to true: this runs headless (no TTY) so there is no one to
+            # interactively approve Edit/Write/Bash prompts — without this the agent
+            # just reports it lacks permission instead of making the change.
+            CLAUDE_SKIP_PERMISSIONS: ${CLAUDE_SKIP_PERMISSIONS:-true}
+            CLAUDE_EXTRA_ARGS: ${CLAUDE_EXTRA_ARGS:-}
+            # REFLEET_CLAUDE_PATH / REFLEET_KIRO_PATH pin an explicit executable
+            # (path or alternate command name) instead of the default PATH lookup
+            # for `claude` / `kiro-cli` — see agent/src/detect.ts.
+            REFLEET_CLAUDE_PATH: ${REFLEET_CLAUDE_PATH:-}
+            REFLEET_KIRO_PATH: ${REFLEET_KIRO_PATH:-}
+        volumes:
+            - ../workspace/agent:/workspace
+        restart: unless-stopped

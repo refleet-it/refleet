@@ -1,0 +1,28 @@
+{
+  "name": "breadcrumb",
+  "$schema": "../../../../../node_modules/nx/schemas/project-schema.json",
+  "sourceRoot": "src/app/shared/ui/breadcrumb/src",
+  "prefix": "hlm",
+  "projectType": "library",
+  "tags": [],
+  "targets": {
+    "build": {
+      "executor": "@nx/angular:ng-packagr-lite",
+      "outputs": ["{workspaceRoot}/dist/{projectRoot}"],
+      "defaultConfiguration": "production",
+      "options": {
+        "project": "src/app/shared/ui/breadcrumb/ng-package.json",
+        "tsConfig": "src/app/shared/ui/breadcrumb/tsconfig.lib.json"
+      },
+      "configurations": {
+        "production": {
+          "tsConfig": "src/app/shared/ui/breadcrumb/tsconfig.lib.prod.json"
+        },
+        "development": {}
+      }
+    },
+    "lint": {
+      "executor": "@nx/eslint:lint"
+    }
+  }
+}

@@ -1,0 +1,29 @@
+framework:
+    messenger:
+        buses:
+            command.bus:
+                middleware:
+                    - 'App\Shared\Infrastructure\Telemetry\TraceBoundedContextMiddleware'
+                    - doctrine_transaction: ['identity']
+
+        transports:
+            to_identity:
+                dsn: '%env(MESSENGER_TRANSPORT_DSN)%?queue_name=to_identity'
+                serializer: 'App\Identity\Account\Infrastructure\Bus\IdentityMessageSerializer'
+
+            # Producer-only: Identity does not consume these, so the generic encode-only
+            # serializer is enough — see App\Shared\Infrastructure\Messenger\OutboundMessageSerializer.
+            to_notification:
+                dsn: '%env(MESSENGER_TRANSPORT_DSN)%?queue_name=to_notification'
+                serializer: 'App\Shared\Infrastructure\Messenger\OutboundMessageSerializer'
+
+            to_organization:
+                dsn: '%env(MESSENGER_TRANSPORT_DSN)%?queue_name=to_organization'
+                serializer: 'App\Shared\Infrastructure\Messenger\OutboundMessageSerializer'
+
+        routing:
+            'App\Identity\Account\Infrastructure\Bus\EmailVerification\EmailVerificationMessage': to_notification
+            'App\Identity\Account\Infrastructure\Bus\PasswordReset\PasswordResetMessage': to_notification
+            'App\Identity\Account\Infrastructure\Bus\PasswordResetCompleted\PasswordResetCompletedMessage': to_notification
+            'App\Identity\Account\Infrastructure\Bus\AccountMirrored\AccountMirroredMessage': to_organization
+            'App\Identity\Account\Infrastructure\Bus\AccountEmailChanged\AccountEmailChangedMessage': to_organization

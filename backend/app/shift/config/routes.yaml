@@ -1,0 +1,6 @@
+shift:
+    resource: ../src/Shift/Infrastructure/Api/
+    type: attribute
+    prefix: /api
+    defaults:
+        _format: json

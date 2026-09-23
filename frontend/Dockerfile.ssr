@@ -1,0 +1,26 @@
+FROM node:22-alpine@sha256:c610fcdfb1d5b4740dd70c284ed3cb16bb857e0f7166196e36a5501df7a3aa32 AS builder
+ARG BUILD_CMD=build:prod
+ARG BUILD_HASH=dev
+WORKDIR /app
+# Built from the repository root, not frontend/, because scripts/build-docs.mjs renders
+# docs/ — which lives at the root so GitLab renders it too — into the pages served at /docs.
+COPY frontend/package*.json ./
+COPY frontend/scripts/ ./scripts/
+RUN npm ci --legacy-peer-deps
+COPY frontend/ .
+COPY docs/ /docs/
+RUN sed -i "s/buildHash: '[^']*'/buildHash: '${BUILD_HASH}'/g" src/environments/environment.prod.ts src/environments/environment.dev.ts
+RUN npm run ${BUILD_CMD}
+
+FROM node:22-alpine@sha256:c610fcdfb1d5b4740dd70c284ed3cb16bb857e0f7166196e36a5501df7a3aa32
+ARG BUILD_HASH=dev
+ENV BUILD_HASH=$BUILD_HASH
+ENV NODE_ENV=production
+WORKDIR /app
+# Official node images already ship a non-root "node" user (uid/gid 1000) - use it
+# instead of running the SSR server as root, consistent with the backend container.
+COPY --from=builder --chown=node:node /app/dist/front/server ./server
+COPY --from=builder --chown=node:node /app/dist/front/browser ./browser
+USER node
+EXPOSE 4000
+CMD ["node", "server/server.mjs"]

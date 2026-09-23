@@ -1,0 +1,128 @@
+<form
+  [formGroup]="registerForm"
+  (ngSubmit)="onSubmit()"
+  class="auth-form"
+  data-testid="registration-form"
+>
+  <div class="auth-header">
+    <h1>Register</h1>
+    <p>Create an account to get started</p>
+  </div>
+  <hlm-field-group class="gap-5">
+    <hlm-field [forceInvalid]="!!emailServerError()">
+      <label hlmFieldLabel for="email">
+        <ng-icon name="lucideMail" />
+        Email
+      </label>
+      <input
+        id="email"
+        type="email"
+        hlmInput
+        class="w-full"
+        formControlName="email"
+        placeholder="Enter your email"
+        autocomplete="email"
+        data-testid="email-input"
+        (input)="emailServerError.set(null)"
+      />
+      @if (registerForm.get('email')?.invalid && registerForm.get('email')?.touched) {
+        <hlm-field-error forceShow data-testid="email-error">
+          <ng-icon name="lucideTriangleAlert" /> Enter a valid email address
+        </hlm-field-error>
+      } @else if (emailServerError()) {
+        <hlm-field-error forceShow data-testid="email-server-error">
+          <ng-icon name="lucideTriangleAlert" /> {{ emailServerError() }}
+        </hlm-field-error>
+      }
+    </hlm-field>
+
+    <hlm-field
+      [forceInvalid]="
+        !!(registerForm.get('password')?.invalid && registerForm.get('password')?.touched)
+      "
+    >
+      <label hlmFieldLabel for="password">
+        <ng-icon name="lucideLock" />
+        Password
+      </label>
+      <app-password-input
+        inputId="password"
+        formControlName="password"
+        placeholder="Enter your password"
+        autocomplete="new-password"
+        testId="password-input"
+        [forceInvalid]="
+          !!(registerForm.get('password')?.invalid && registerForm.get('password')?.touched)
+        "
+      />
+      @if (!(registerForm.get('password')?.invalid && registerForm.get('password')?.touched)) {
+        <hlm-field-description> Minimum 8 characters </hlm-field-description>
+      }
+      @if (registerForm.get('password')?.invalid && registerForm.get('password')?.touched) {
+        <hlm-field-error forceShow data-testid="password-error">
+          <ng-icon name="lucideTriangleAlert" />
+          Password must be at least 8 characters
+        </hlm-field-error>
+      }
+    </hlm-field>
+
+    <hlm-field orientation="horizontal" class="items-center">
+      <hlm-checkbox
+        formControlName="termsAccepted"
+        inputId="termsAccepted"
+        data-testid="required-consent-terms"
+      />
+      <label hlmFieldLabel for="termsAccepted" class="cursor-pointer select-none">
+        I accept the
+        @if ('' === termsUrl()) {
+          terms of service and privacy policy
+        } @else {
+          <a [href]="termsUrl()" target="_blank" rel="noopener" class="terms-link">
+            Terms of Service and Privacy Policy
+          </a>
+        }
+      </label>
+      @if (
+        registerForm.get('termsAccepted')?.invalid && registerForm.get('termsAccepted')?.touched
+      ) {
+        <hlm-field-error forceShow data-testid="consent-error">
+          <ng-icon name="lucideTriangleAlert" /> You must accept the terms and privacy policy
+        </hlm-field-error>
+      }
+    </hlm-field>
+
+    <hlm-field orientation="horizontal" class="items-center">
+      <hlm-checkbox
+        formControlName="marketingConsent"
+        inputId="marketingConsent"
+        data-testid="optional-consent-marketing"
+      />
+      <label hlmFieldLabel for="marketingConsent" class="cursor-pointer select-none">
+        I consent to receiving marketing communications
+      </label>
+    </hlm-field>
+  </hlm-field-group>
+
+  <div class="form-actions">
+    <button
+      type="submit"
+      hlmBtn
+      class="w-full"
+      [disabled]="registerForm.invalid || isSubmitting"
+      data-testid="registration-button"
+    >
+      @if (isSubmitting) {
+        <ng-icon name="lucideLoader2" class="animate-spin" />
+      } @else {
+        <ng-icon name="lucideUserPlus" />
+      }
+      Register
+    </button>
+  </div>
+  <div class="form-footer">
+    <p>
+      Already have an account?
+      <a routerLink="/auth" class="register-link"> Log in </a>
+    </p>
+  </div>
+</form>
