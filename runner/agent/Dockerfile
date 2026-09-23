@@ -3,7 +3,7 @@
 # Bakes in every agent CLI this runner knows how to auto-detect (currently claude,
 # kiro-cli) — `refleet run` decides at startup which of them to actually
 # register as Runners based on what's really usable (see src/detect.ts).
-FROM node:22-alpine
+FROM node:25-alpine
 
 # bash and curl are only needed by the Kiro installer below; git is the one runtime
 # dependency the fleet loop has (GitLab is talked to over its REST API from Node).
