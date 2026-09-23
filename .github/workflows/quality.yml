@@ -20,7 +20,7 @@ jobs:
         name: Backend
         runs-on: ubuntu-latest
         steps:
-            -   uses: actions/checkout@v5
+            -   uses: actions/checkout@v7
 
             -   name: Generate a JWT keypair for this run
                 # One container signs and verifies, since it runs the whole suite including
@@ -87,8 +87,8 @@ jobs:
             run:
                 working-directory: frontend
         steps:
-            -   uses: actions/checkout@v5
-            -   uses: actions/setup-node@v5
+            -   uses: actions/checkout@v7
+            -   uses: actions/setup-node@v7
                 with:
                     node-version: 22
                     cache: npm
@@ -118,8 +118,8 @@ jobs:
             run:
                 working-directory: runner/agent
         steps:
-            -   uses: actions/checkout@v5
-            -   uses: actions/setup-node@v5
+            -   uses: actions/checkout@v7
+            -   uses: actions/setup-node@v7
                 with:
                     node-version: 22
                     cache: npm
@@ -135,8 +135,8 @@ jobs:
             run:
                 working-directory: mcp-server
         steps:
-            -   uses: actions/checkout@v5
-            -   uses: actions/setup-node@v5
+            -   uses: actions/checkout@v7
+            -   uses: actions/setup-node@v7
                 with:
                     node-version: 22
                     cache: npm
@@ -148,8 +148,8 @@ jobs:
         name: Documentation
         runs-on: ubuntu-latest
         steps:
-            -   uses: actions/checkout@v5
-            -   uses: actions/setup-node@v5
+            -   uses: actions/checkout@v7
+            -   uses: actions/setup-node@v7
                 with:
                     node-version: 22
                 # Nothing else checks the documentation: a link to a renamed page, a moved
@@ -161,7 +161,7 @@ jobs:
         name: Security
         runs-on: ubuntu-latest
         steps:
-            -   uses: actions/checkout@v5
+            -   uses: actions/checkout@v7
                 with:
                     fetch-depth: 0
 
@@ -172,7 +172,7 @@ jobs:
                     docker run --rm -v "$PWD:/repo" -w /repo zricethezav/gitleaks:v8.22.1 \
                         detect --source . --config .gitleaks.toml --no-banner
 
-            -   uses: actions/setup-node@v5
+            -   uses: actions/setup-node@v7
                 with:
                     node-version: 22
 
