@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "b8c4da7360bc05dac536bb8bf9f14b1e",
+    "content-hash": "45c2e24bd28e6906a5cfabe12cbb6989",
     "packages": [
         {
             "name": "brick/math",
@@ -5503,28 +5503,27 @@
         },
         {
             "name": "symfony/intl",
-            "version": "v7.4.8",
+            "version": "v8.1.5",
             "source": {
                 "type": "git",
                 "url": "https://github.com/symfony/intl.git",
-                "reference": "7cfb7792d580dea833647420afd5f2f98df8457b"
+                "reference": "9a8ba3a0af4db32bf228ca841c319d5dc97f7d02"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/symfony/intl/zipball/7cfb7792d580dea833647420afd5f2f98df8457b",
-                "reference": "7cfb7792d580dea833647420afd5f2f98df8457b",
+                "url": "https://api.github.com/repos/symfony/intl/zipball/9a8ba3a0af4db32bf228ca841c319d5dc97f7d02",
+                "reference": "9a8ba3a0af4db32bf228ca841c319d5dc97f7d02",
                 "shasum": ""
             },
             "require": {
-                "php": ">=8.2",
-                "symfony/deprecation-contracts": "^2.5|^3"
+                "php": ">=8.4.1"
             },
             "conflict": {
-                "symfony/string": "<7.1"
+                "symfony/string": "<7.4"
             },
             "require-dev": {
-                "symfony/filesystem": "^6.4|^7.0|^8.0",
-                "symfony/var-exporter": "^6.4|^7.0|^8.0"
+                "symfony/filesystem": "^7.4|^8.0",
+                "symfony/var-exporter": "^7.4|^8.0"
             },
             "type": "library",
             "autoload": {
@@ -5569,7 +5568,7 @@
                 "localization"
             ],
             "support": {
-                "source": "https://github.com/symfony/intl/tree/v7.4.8"
+                "source": "https://github.com/symfony/intl/tree/v8.1.5"
             },
             "funding": [
                 {
@@ -5589,7 +5588,7 @@
                     "type": "tidelift"
                 }
             ],
-            "time": "2026-03-30T12:55:43+00:00"
+            "time": "2026-08-21T17:47:34+00:00"
         },
         {
             "name": "symfony/mailer",
@@ -13527,7 +13526,7 @@
     ],
     "aliases": [],
     "minimum-stability": "dev",
-    "stability-flags": [],
+    "stability-flags": {},
     "prefer-stable": true,
     "prefer-lowest": false,
     "platform": {
@@ -13537,6 +13536,6 @@
         "ext-iconv": "*",
         "ext-opentelemetry": "*"
     },
-    "platform-dev": [],
+    "platform-dev": {},
     "plugin-api-version": "2.9.0"
 }

@@ -34,7 +34,7 @@
     "symfony/flex": "^2.8",
     "symfony/framework-bundle": "7.4.*",
     "symfony/http-client": "7.4.*",
-    "symfony/intl": "7.4.*",
+    "symfony/intl": "8.1.*",
     "symfony/mailer": "7.4.*",
     "symfony/mime": "7.4.*",
     "symfony/monolog-bundle": "^3.0",
