@@ -23,7 +23,7 @@
     "open-telemetry/opentelemetry-auto-symfony": "^1.0",
     "open-telemetry/sdk": "^1.0",
     "php-http/httplug": "^2.4",
-    "phpdocumentor/reflection-docblock": "^5.3",
+    "phpdocumentor/reflection-docblock": "^6.0",
     "ramsey/uuid": "^4.9",
     "runtime/frankenphp-symfony": "^1.0",
     "symfony/asset": "7.4.*",
