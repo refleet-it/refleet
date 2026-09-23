@@ -40,7 +40,7 @@
     "symfony/monolog-bundle": "^3.0",
     "symfony/notifier": "7.4.*",
     "symfony/process": "7.4.*",
-    "symfony/property-access": "7.4.*",
+    "symfony/property-access": "8.1.*",
     "symfony/property-info": "7.4.*",
     "symfony/runtime": "7.4.*",
     "symfony/scheduler": "7.4.*",
