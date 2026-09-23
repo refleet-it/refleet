@@ -46,7 +46,7 @@
     "start": "node dist/cli.js run"
   },
   "devDependencies": {
-    "@types/node": "^22.10.0",
+    "@types/node": "^26.6.2",
     "typescript": "^5.7.2"
   }
 }
