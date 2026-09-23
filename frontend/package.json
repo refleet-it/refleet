@@ -57,7 +57,7 @@
     "@angular-devkit/build-angular": "^21.2.21",
     "@angular-devkit/core": "^21.2.21",
     "@angular-devkit/schematics": "^21.2.21",
-    "@angular/build": "^21.2.21",
+    "@angular/build": "^22.1.8",
     "@angular/cli": "^21.2.21",
     "@angular/compiler-cli": "^21.2.23",
     "@lhci/cli": "^0.15.1",
