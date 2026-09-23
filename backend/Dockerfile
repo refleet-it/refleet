@@ -1,7 +1,7 @@
-FROM composer:2.9.7@sha256:dc292c5c0f95f526b051d4c341bf08e7e2b18504c74625e3203d7f123050e318 AS composer
+FROM composer:2.10.3@sha256:a5f59b9fd2faf31218632be4809dc6491761085e8064c31dc3b84378c48c248b AS composer
 
 # === Extension Builder ===
-FROM dunglas/frankenphp:1.12.2-php8@sha256:3f58675c38bbc3f5a2ac1bdf442b7a2c541adc0f785700ed68bb224b7c2e5132 AS ext-builder
+FROM dunglas/frankenphp:1.12.7-php8@sha256:8c11fc8030f12123470ae23a301e553718eb93034589de50f5a3177bd2686b16 AS ext-builder
 
 RUN apt-get update && apt-get install -y \
     libzip-dev libicu-dev libpq-dev \
@@ -14,7 +14,7 @@ RUN apt-get update && apt-get install -y \
     && rm -rf /var/lib/apt/lists/*
 
 # === Base (runtime only) ===
-FROM dunglas/frankenphp:1.12.2-php8@sha256:3f58675c38bbc3f5a2ac1bdf442b7a2c541adc0f785700ed68bb224b7c2e5132 AS base-common
+FROM dunglas/frankenphp:1.12.7-php8@sha256:8c11fc8030f12123470ae23a301e553718eb93034589de50f5a3177bd2686b16 AS base-common
 
 COPY --from=composer /usr/bin/composer /usr/bin/composer
 COPY --from=ext-builder /usr/local/lib/php/extensions/ /usr/local/lib/php/extensions/
