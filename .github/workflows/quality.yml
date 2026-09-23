@@ -1,0 +1,208 @@
+# The gate, as `make quality-check` runs it locally. Everything runs on every push and every
+# pull request: the suite is minutes, not hours, and path filters here would have to solve the
+# "main compared against itself" problem for no real saving.
+name: Quality
+
+on:
+    push:
+        branches: [main]
+    pull_request:
+
+permissions:
+    contents: read
+
+concurrency:
+    group: quality-${{ github.ref }}
+    cancel-in-progress: true
+
+jobs:
+    backend:
+        name: Backend
+        runs-on: ubuntu-latest
+        steps:
+            -   uses: actions/checkout@v5
+
+            -   name: Generate a JWT keypair for this run
+                # One container signs and verifies, since it runs the whole suite including
+                # identity. Never committed — see ci/scripts/jwt-keypair.sh.
+                run: ci/scripts/jwt-keypair.sh >> "$GITHUB_ENV"
+
+            -   name: Start the stack
+                run: |
+                    docker compose -f compose.ci.yml build backend
+                    docker compose -f compose.ci.yml up -d --wait --wait-timeout 90 database backend
+                    docker compose -f compose.ci.yml exec -T backend \
+                        composer install --no-interaction --prefer-dist --optimize-autoloader --no-scripts
+
+            -   name: Coding standards
+                run: |
+                    docker compose -f compose.ci.yml exec -T -e PHP_CS_FIXER_IGNORE_ENV=1 backend \
+                        vendor/bin/php-cs-fixer fix --dry-run --diff --allow-risky=yes --config=tools/php-cs-fixer/.php-cs-fixer.dist.php
+                    docker compose -f compose.ci.yml exec -T backend \
+                        vendor/bin/rector process --dry-run --config=tools/rector/rector.dist.php
+
+            -   name: Static analysis
+                run: |
+                    docker compose -f compose.ci.yml exec -T backend php bin/console cache:warmup --env=test
+                    docker compose -f compose.ci.yml exec -T backend php -d memory_limit=1G \
+                        vendor/bin/phpstan analyse --configuration=tools/phpstan/phpstan.dist.neon
+                    docker compose -f compose.ci.yml exec -T backend ./vendor/bin/phparkitect check --config=tools/phparkitect/phparkitect-src.php
+                    docker compose -f compose.ci.yml exec -T backend ./vendor/bin/phparkitect check --config=tools/phparkitect/phparkitect-tests.php
+                    docker compose -f compose.ci.yml exec -T backend ./vendor/bin/phparkitect check --config=tools/phparkitect/phparkitect-dto-location.php
+                    docker compose -f compose.ci.yml exec -T backend php -d error_reporting=E_ALL^E_DEPRECATED \
+                        vendor/bin/phpmd src,app text tools/phpmd/phpmd.xml --exclude '*/tests/*'
+
+            -   name: Migrate
+                run: |
+                    docker compose -f compose.ci.yml exec -T database psql -U refleet -d refleet_db -c "CREATE DATABASE refleet_db_test;"
+                    docker compose -f compose.ci.yml exec -T backend php bin/console doctrine:migrations:migrate --no-interaction
+
+            -   name: Validate every entity manager's schema
+                # Asked for rather than listed: a context added without touching this file would
+                # otherwise go unvalidated, and nothing would say so. The emptiness check is there
+                # because a silent loop over nothing looks exactly like a passing one.
+                run: |
+                    EMS=$(docker compose -f compose.ci.yml exec -T backend php bin/console debug:container --parameter=doctrine.entity_managers --format=json \
+                        | sed -n 's/.*"\([a-z]*\)": "doctrine\.orm\..*/\1/p')
+                    [ -n "$EMS" ] || { echo "no entity managers found — has the container parameter changed shape?"; exit 1; }
+                    echo "Validating: $(echo $EMS | tr '\n' ' ')"
+                    for em in $EMS; do
+                        docker compose -f compose.ci.yml exec -T backend php bin/console doctrine:schema:validate --em="$em" || exit 1
+                    done
+
+            -   name: Tests
+                run: |
+                    docker compose -f compose.ci.yml exec -T backend php bin/console messenger:setup-transports --no-interaction
+                    docker compose -f compose.ci.yml exec -T backend php bin/console doctrine:fixtures:load --no-interaction
+                    docker compose -f compose.ci.yml exec -T backend vendor/bin/phpunit --configuration=phpunit.xml.dist
+
+            -   name: Stop the stack
+                if: always()
+                run: docker compose -f compose.ci.yml down -v --timeout 10
+
+    frontend:
+        name: Frontend
+        runs-on: ubuntu-latest
+        defaults:
+            run:
+                working-directory: frontend
+        steps:
+            -   uses: actions/checkout@v5
+            -   uses: actions/setup-node@v5
+                with:
+                    node-version: 22
+                    cache: npm
+                    cache-dependency-path: frontend/package-lock.json
+
+            -   run: npm ci --legacy-peer-deps
+
+            -   name: Format, lint, types
+                run: |
+                    npm run format:check
+                    npm run lint
+                    npm run type-check
+
+            -   run: npm run test:ci
+
+            -   name: Build
+                # A gate, not just packaging: this is the only thing enforcing the bundle
+                # budgets in angular.json.
+                env:
+                    NODE_OPTIONS: --max-old-space-size=4096
+                run: npm run build
+
+    runner:
+        name: Runner agent
+        runs-on: ubuntu-latest
+        defaults:
+            run:
+                working-directory: runner/agent
+        steps:
+            -   uses: actions/checkout@v5
+            -   uses: actions/setup-node@v5
+                with:
+                    node-version: 22
+                    cache: npm
+                    cache-dependency-path: runner/agent/package-lock.json
+            -   run: npm ci --no-audit
+                # `npm test` compiles first and then runs node --test over the emitted dist
+            -   run: npm test
+
+    mcp-server:
+        name: MCP server
+        runs-on: ubuntu-latest
+        defaults:
+            run:
+                working-directory: mcp-server
+        steps:
+            -   uses: actions/checkout@v5
+            -   uses: actions/setup-node@v5
+                with:
+                    node-version: 22
+                    cache: npm
+                    cache-dependency-path: mcp-server/package-lock.json
+            -   run: npm ci --no-audit
+            -   run: npm test
+
+    docs:
+        name: Documentation
+        runs-on: ubuntu-latest
+        steps:
+            -   uses: actions/checkout@v5
+            -   uses: actions/setup-node@v5
+                with:
+                    node-version: 22
+                # Nothing else checks the documentation: a link to a renamed page, a moved
+                # heading anchor, or a page nobody linked from the index are all invisible in
+                # a diff and none of them break a build.
+            -   run: node ci/scripts/check-docs.mjs
+
+    security:
+        name: Security
+        runs-on: ubuntu-latest
+        steps:
+            -   uses: actions/checkout@v5
+                with:
+                    fetch-depth: 0
+
+            -   name: Secret scan
+                # The official action asks organisations for a licence key; the image it wraps
+                # does not, and this is the same command `make secret-scan` runs locally.
+                run: |
+                    docker run --rm -v "$PWD:/repo" -w /repo zricethezav/gitleaks:v8.22.1 \
+                        detect --source . --config .gitleaks.toml --no-banner
+
+            -   uses: actions/setup-node@v5
+                with:
+                    node-version: 22
+
+            -   name: Dependency audits
+                run: |
+                    (cd frontend && npm audit --omit=dev --audit-level=high)
+                    (cd frontend && npm audit --audit-level=high)
+                    (cd runner/agent && npm audit --audit-level=high)
+                    (cd mcp-server && npm audit --audit-level=high)
+
+            -   name: Composer audit
+                # --locked reads composer.lock, which is what is in the repository; without it
+                # composer wants an installed vendor/ and fails before auditing anything. Same
+                # flag `make audit-backend` uses.
+                run: |
+                    docker run --rm -v "$PWD/backend:/app" -w /app composer:2 \
+                        composer audit --locked --no-interaction
+
+            -   name: Trivy filesystem scan
+                uses: aquasecurity/trivy-action@v0.36.0
+                with:
+                    scan-type: fs
+                    scan-ref: .
+                    # Vulnerabilities only. Secrets are gitleaks' job above, with the
+                    # allowlist in .gitleaks.toml that knows which of the tokens in this
+                    # repository are OpenAPI examples and invented fixture values. Trivy's
+                    # own secret scanner has no such context and flags both.
+                    scanners: vuln
+                    severity: HIGH,CRITICAL
+                    exit-code: '1'
+                    ignore-unfixed: true
+                    trivyignores: .trivyignore.yaml
+                    skip-dirs: runner/workspace,backend/var

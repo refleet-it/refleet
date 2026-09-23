@@ -1,0 +1,52 @@
+{
+  "name": "@refleet-it/runner",
+  "version": "0.3.0",
+  "description": "Refleet fleet runner: claims code-modernisation jobs from the Refleet API and runs them through Claude Code or Kiro on your own machine.",
+  "keywords": [
+    "refleet",
+    "runner",
+    "claude-code",
+    "kiro",
+    "gitlab",
+    "code-modernisation"
+  ],
+  "homepage": "https://refleet.it",
+  "bugs": {
+    "url": "https://github.com/refleet-it/refleet/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/refleet-it/refleet.git",
+    "directory": "runner/agent"
+  },
+  "license": "MIT",
+  "type": "module",
+  "bin": {
+    "refleet": "dist/cli.js",
+    "refleet-runner": "dist/cli.js"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "files": [
+    "dist/**/*.js",
+    "!dist/**/*.test.js",
+    "!dist/**/test-support.js"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json && chmod +x dist/cli.js",
+    "prepack": "npm run build",
+    "test": "npm run build && cd dist && node --test",
+    "login": "node dist/cli.js login",
+    "logout": "node dist/cli.js logout",
+    "whoami": "node dist/cli.js whoami",
+    "start": "node dist/cli.js run"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "typescript": "^5.7.2"
+  }
+}

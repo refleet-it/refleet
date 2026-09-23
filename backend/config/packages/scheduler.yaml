@@ -1,0 +1,6 @@
+# Bundle is enabled but no #[AsSchedule] provider exists yet in src/ - this is
+# intentionally a no-op today, kept ready for the first recurring in-app job
+# (e.g. periodic cleanup) rather than dead config left behind by mistake.
+framework:
+    scheduler:
+        enabled: true

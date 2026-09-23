@@ -1,0 +1,33 @@
+services:
+    _defaults:
+        autowire: true
+        autoconfigure: true
+
+    App\Playbook\:
+        resource: '../src/'
+        exclude:
+            - '../src/Playbook/Infrastructure/Api/'
+
+    App\Playbook\Playbook\Infrastructure\Api\:
+        resource: '../src/Playbook/Infrastructure/Api/**/*Controller.php'
+        tags: ['controller.service_arguments']
+
+    App\Playbook\Playbook\Infrastructure\Persistence\:
+        resource: '../src/Playbook/Infrastructure/Persistence/'
+        bind:
+            Doctrine\ORM\EntityManagerInterface: '@doctrine.orm.playbook_entity_manager'
+
+    # The built-in playbooks ship as markdown files next to this context's code.
+    App\Playbook\Playbook\Infrastructure\Service\MarkdownBuiltInPlaybookCatalog:
+        arguments:
+            $directory: '%kernel.project_dir%/app/playbook/resources/playbooks'
+
+    # HTTP-backed adapters — see App\Shared\Infrastructure\Http\Internal\.
+    App\Shared\Domain\Service\OrganizationContextProviderInterface:
+        alias: App\Shared\Infrastructure\Http\Internal\HttpOrganizationContextProvider
+
+    # Registers the shared domain-event dispatcher for this context's own connection only —
+    # see App\Shared\Application\Event\DomainEventDispatcher.
+    App\Shared\Application\Event\DomainEventDispatcher:
+        tags:
+            - { name: 'doctrine.event_listener', event: 'preFlush', connection: 'playbook', priority: 500 }

@@ -1,0 +1,21 @@
+<div class="status-container" data-testid="registration-pending-page">
+  <div class="auth-header">
+    <h1>Check your inbox</h1>
+    <p>Almost done! Just one more step.</p>
+  </div>
+
+  <div class="status-content">
+    <ng-icon name="lucideMail" style="font-size: 4rem; color: var(--primary)" />
+    <h2>Confirm your email address</h2>
+    <p>
+      We have sent an activation link to your email address. Click it to complete your registration.
+    </p>
+    <p class="hint">Don't see the message? Check your spam folder.</p>
+    <div class="form-actions">
+      <button type="button" hlmBtn class="w-full primary-button" (click)="goToLogin()">
+        <ng-icon name="lucideLogIn" />
+        Go to login
+      </button>
+    </div>
+  </div>
+</div>

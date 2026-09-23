@@ -1,0 +1,138 @@
+<div class="border-border rounded-lg border">
+  <div class="border-border flex flex-wrap items-center gap-x-4 gap-y-2 border-b px-3 py-2">
+    <p class="text-sm font-medium">Playbooks</p>
+    <span class="text-muted-foreground text-xs">
+      Compose the fields below from reusable pieces — everything they produce stays editable.
+    </span>
+    <a
+      routerLink="/dashboard/playbooks"
+      class="text-primary ms-auto text-xs underline-offset-4 hover:underline"
+    >
+      Manage playbooks
+    </a>
+  </div>
+
+  <div class="flex flex-col gap-4 px-3 py-3">
+    @if (isLoading()) {
+      <p class="text-muted-foreground text-sm">Loading playbooks…</p>
+    } @else if (loadError()) {
+      <p class="text-destructive text-sm">{{ loadError() }}</p>
+    } @else {
+      <div class="flex flex-col gap-2">
+        <p class="text-muted-foreground text-xs font-medium uppercase tracking-wide">Rules</p>
+        @if (ruleOptions().length === 0) {
+          <p class="text-muted-foreground text-sm">No rules apply here yet.</p>
+        }
+        @for (rule of ruleOptions(); track rule.id) {
+          <div class="flex items-start gap-2">
+            <hlm-checkbox
+              [checked]="isRuleSelected(rule.id)"
+              (checkedChange)="toggleRule(rule.id)"
+              [inputId]="idPrefix() + '-rule-' + $index"
+            />
+            <div class="flex flex-col">
+              <label
+                hlmLabel
+                class="flex flex-wrap items-center gap-1.5"
+                [for]="idPrefix() + '-rule-' + $index"
+              >
+                {{ rule.name }}
+                @if (rule.default) {
+                  <span hlmBadge variant="secondary" class="text-[10px]">default</span>
+                }
+                @if (rule.builtIn) {
+                  <span hlmBadge variant="outline" class="text-[10px]">built-in</span>
+                }
+              </label>
+              @if (rule.description) {
+                <span class="text-muted-foreground text-xs">{{ rule.description }}</span>
+              }
+            </div>
+          </div>
+        }
+      </div>
+
+      <div class="flex flex-col gap-2">
+        <label
+          hlmLabel
+          class="text-muted-foreground text-xs font-medium uppercase tracking-wide"
+          [for]="idPrefix() + '-task'"
+        >
+          Task
+        </label>
+        <select
+          [id]="idPrefix() + '-task'"
+          class="border-input bg-background h-9 w-full rounded-md border px-3 text-sm sm:w-96"
+          [ngModel]="selectedTaskId()"
+          (ngModelChange)="selectTask($event)"
+          [name]="idPrefix() + '-task'"
+        >
+          <option value="">Write the prompt by hand</option>
+          @for (task of taskOptions(); track task.id) {
+            <option [value]="task.id">
+              {{ task.name }}{{ task.builtIn ? ' (built-in)' : '' }}
+            </option>
+          }
+        </select>
+        @if (selectedTask(); as task) {
+          @if (task.description) {
+            <p class="text-muted-foreground text-xs">{{ task.description }}</p>
+          }
+          @if (task.parameters.length > 0) {
+            <div class="grid gap-3 sm:grid-cols-2">
+              @for (parameter of task.parameters; track parameter.name) {
+                <div class="flex flex-col gap-1">
+                  <label hlmLabel class="text-xs" [for]="idPrefix() + '-param-' + parameter.name">
+                    {{ parameter.label }}
+                    @if (parameter.required) {
+                      <span class="text-destructive">*</span>
+                    }
+                  </label>
+                  <input
+                    hlmInput
+                    type="text"
+                    class="w-full"
+                    [id]="idPrefix() + '-param-' + parameter.name"
+                    [ngModel]="parameterValues()[parameter.name]"
+                    (ngModelChange)="updateParameter(parameter.name, $event)"
+                    [name]="idPrefix() + '-param-' + parameter.name"
+                  />
+                </div>
+              }
+            </div>
+          }
+        }
+      </div>
+
+      @if (composeError()) {
+        <p class="text-destructive text-sm">{{ composeError() }}</p>
+      }
+
+      @if (rulesEdited() || (selectedTask() && promptEdited())) {
+        <div class="bg-muted/50 flex flex-wrap items-center gap-2 rounded-md px-3 py-2 text-xs">
+          <span class="text-muted-foreground">
+            @if (rulesEdited() && selectedTask() && promptEdited()) {
+              The rules and prompt below were edited by hand, so playbook changes no longer
+              overwrite them.
+            } @else if (rulesEdited()) {
+              The rules below were edited by hand, so playbook changes no longer overwrite them.
+            } @else {
+              The prompt below was edited by hand, so playbook changes no longer overwrite it.
+            }
+          </span>
+          <button
+            hlmBtn
+            type="button"
+            variant="outline"
+            size="sm"
+            class="ms-auto"
+            (click)="replaceEdited()"
+            [disabled]="isComposing()"
+          >
+            Replace with playbook text
+          </button>
+        </div>
+      }
+    }
+  </div>
+</div>

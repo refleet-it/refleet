@@ -1,0 +1,42 @@
+# Where the newest published runner version is read from (see
+# App\Runner\Runner\Infrastructure\Service\NpmLatestRunnerVersionProvider). Empty switches
+# the lookup off — the test env does that, so no test ever reaches the registry.
+parameters:
+    env(RUNNER_RELEASE_URL): 'https://registry.npmjs.org/@refleet-it/runner/latest'
+
+services:
+    _defaults:
+        autowire: true
+        autoconfigure: true
+
+    App\Runner\:
+        resource: '../src/'
+        exclude:
+            - '../src/Runner/Infrastructure/Api/'
+
+    App\Runner\Runner\Infrastructure\Api\:
+        resource: '../src/Runner/Infrastructure/Api/**/*Controller.php'
+        tags: ['controller.service_arguments']
+
+    App\Runner\Runner\Infrastructure\Persistence\:
+        resource: '../src/Runner/Infrastructure/Persistence/'
+        bind:
+            Doctrine\ORM\EntityManagerInterface: '@doctrine.orm.runner_entity_manager'
+
+    # Port owned by this context, consumed by others through Shared
+    App\Shared\Domain\Service\RunnerDirectoryInterface:
+        alias: App\Runner\Runner\Infrastructure\Service\RunnerDirectory
+
+    # HTTP-backed adapter — see App\Shared\Infrastructure\Http\Internal\HttpApiKeyValidator.
+    App\Shared\Domain\Service\ApiKeyValidatorInterface:
+        alias: App\Shared\Infrastructure\Http\Internal\HttpApiKeyValidator
+
+    # HTTP-backed adapters — see App\Shared\Infrastructure\Http\Internal\.
+    App\Shared\Domain\Service\OrganizationContextProviderInterface:
+        alias: App\Shared\Infrastructure\Http\Internal\HttpOrganizationContextProvider
+
+    # Registers the shared domain-event dispatcher for this context's own connection only —
+    # see App\Shared\Application\Event\DomainEventDispatcher.
+    App\Shared\Application\Event\DomainEventDispatcher:
+        tags:
+            - { name: 'doctrine.event_listener', event: 'preFlush', connection: 'runner', priority: 500 }

@@ -1,0 +1,176 @@
+{
+  "name": "refleet/backend",
+  "type": "project",
+  "description": "Modular monolith for Refleet.",
+  "license": "proprietary",
+  "minimum-stability": "dev",
+  "prefer-stable": true,
+  "require": {
+    "php": ">=8.5",
+    "ext-ctype": "*",
+    "ext-gd": "*",
+    "ext-iconv": "*",
+    "ext-opentelemetry": "*",
+    "doctrine/doctrine-bundle": "^2.10",
+    "doctrine/doctrine-migrations-bundle": "^3.2",
+    "doctrine/orm": "^3.5",
+    "dragonmantank/cron-expression": "^3.6",
+    "lcobucci/jwt": "^5.0",
+    "nelmio/api-doc-bundle": "^5.5",
+    "nelmio/cors-bundle": "^2.5",
+    "nyholm/psr7": "^1.8",
+    "open-telemetry/exporter-otlp": "^1.0",
+    "open-telemetry/opentelemetry-auto-symfony": "^1.0",
+    "open-telemetry/sdk": "^1.0",
+    "php-http/httplug": "^2.4",
+    "phpdocumentor/reflection-docblock": "^5.3",
+    "ramsey/uuid": "^4.9",
+    "runtime/frankenphp-symfony": "^1.0",
+    "symfony/asset": "7.4.*",
+    "symfony/console": "7.4.*",
+    "symfony/doctrine-messenger": "7.4.*",
+    "symfony/dotenv": "7.4.*",
+    "symfony/expression-language": "7.4.*",
+    "symfony/flex": "^2.8",
+    "symfony/framework-bundle": "7.4.*",
+    "symfony/http-client": "7.4.*",
+    "symfony/intl": "7.4.*",
+    "symfony/mailer": "7.4.*",
+    "symfony/mime": "7.4.*",
+    "symfony/monolog-bundle": "^3.0",
+    "symfony/notifier": "7.4.*",
+    "symfony/process": "7.4.*",
+    "symfony/property-access": "7.4.*",
+    "symfony/property-info": "7.4.*",
+    "symfony/runtime": "7.4.*",
+    "symfony/scheduler": "7.4.*",
+    "symfony/security-bundle": "7.4.*",
+    "symfony/serializer": "7.4.*",
+    "symfony/string": "7.4.*",
+    "symfony/translation": "7.4.*",
+    "symfony/twig-bundle": "7.4.*",
+    "symfony/validator": "7.4.*",
+    "symfony/yaml": "7.4.*",
+    "twig/extra-bundle": "^2.12|^3.0",
+    "twig/twig": "^3.0"
+  },
+  "require-dev": {
+    "dama/doctrine-test-bundle": "^8.0",
+    "doctrine/doctrine-fixtures-bundle": "^4.1",
+    "friendsofphp/php-cs-fixer": "^3.58",
+    "phparkitect/phparkitect": "^0.7",
+    "phpat/phpat": "^0.12",
+    "phpmd/phpmd": "^2.15",
+    "phpstan/phpstan": "^2.1",
+    "phpstan/phpstan-beberlei-assert": "^2.0",
+    "phpstan/phpstan-phpunit": "^2.0",
+    "phpstan/phpstan-strict-rules": "^2.0",
+    "phpstan/phpstan-symfony": "^2.0",
+    "phpunit/phpunit": "^12.3",
+    "rector/rector": "^2.0",
+    "spaze/phpstan-disallowed-calls": "^4.0",
+    "symfony/browser-kit": "7.4.*",
+    "symfony/css-selector": "7.4.*",
+    "symfony/debug-bundle": "7.4.*",
+    "symfony/maker-bundle": "^1.52",
+    "symfony/phpunit-bridge": "^7.4",
+    "symfony/stopwatch": "7.4.*",
+    "symfony/web-profiler-bundle": "7.4.*",
+    "zenstruck/foundry": "^2.6"
+  },
+  "config": {
+    "allow-plugins": {
+      "composer/package-versions-deprecated": true,
+      "php-http/discovery": true,
+      "symfony/flex": true,
+      "symfony/runtime": true,
+      "tbachert/spi": true
+    },
+    "optimize-autoloader": true,
+    "preferred-install": {
+      "*": "dist"
+    },
+    "sort-packages": true
+  },
+  "autoload": {
+    "psr-4": {
+      "App\\": "src/",
+      "App\\Fixtures\\": "fixtures/",
+      "App\\Notification\\": "app/notification/src/",
+      "App\\File\\": "app/file/src/",
+      "App\\Qualification\\": "app/qualification/src/",
+      "App\\Playbook\\": "app/playbook/src/",
+      "App\\Shift\\": "app/shift/src/",
+      "App\\Runner\\": "app/runner/src/",
+      "App\\Project\\": "app/project/src/",
+      "App\\Organization\\": "app/organization/src/",
+      "App\\Identity\\": "app/identity/src/"
+    }
+  },
+  "autoload-dev": {
+    "psr-4": {
+      "App\\Tests\\": "tests/",
+      "App\\PHPStan\\Rules\\": "tools/phpstan/rules/",
+      "Refleet\\PHPMD\\Rule\\": "tools/phpmd/rules/",
+      "App\\Tests\\Unit\\File\\": "app/file/tests/Unit/",
+      "App\\Tests\\Unit\\Shift\\": "app/shift/tests/Unit/",
+      "App\\Tests\\Unit\\Runner\\": "app/runner/tests/Unit/",
+      "App\\Tests\\Unit\\Project\\": "app/project/tests/Unit/",
+      "App\\Tests\\Unit\\Identity\\": "app/identity/tests/Unit/",
+      "App\\Tests\\Functional\\File\\": "app/file/tests/Functional/",
+      "App\\Tests\\Functional\\Shift\\": "app/shift/tests/Functional/",
+      "App\\Tests\\Functional\\Runner\\": "app/runner/tests/Functional/",
+      "App\\Tests\\Integration\\Shift\\": "app/shift/tests/Integration/",
+      "App\\Tests\\Unit\\Notification\\": "app/notification/tests/Unit/",
+      "App\\Tests\\Unit\\Organization\\": "app/organization/tests/Unit/",
+      "App\\Tests\\Functional\\Project\\": "app/project/tests/Functional/",
+      "App\\Tests\\Integration\\Runner\\": "app/runner/tests/Integration/",
+      "App\\Tests\\Unit\\Qualification\\": "app/qualification/tests/Unit/",
+      "App\\Tests\\Unit\\Playbook\\": "app/playbook/tests/Unit/",
+      "App\\Tests\\Functional\\Identity\\": "app/identity/tests/Functional/",
+      "App\\Tests\\Integration\\Project\\": "app/project/tests/Integration/",
+      "App\\Tests\\Integration\\Identity\\": "app/identity/tests/Integration/",
+      "App\\Tests\\Functional\\Organization\\": "app/organization/tests/Functional/",
+      "App\\Tests\\Functional\\Qualification\\": "app/qualification/tests/Functional/",
+      "App\\Tests\\Functional\\Playbook\\": "app/playbook/tests/Functional/",
+      "App\\Tests\\Integration\\Notification\\": "app/notification/tests/Integration/",
+      "App\\Tests\\Integration\\Organization\\": "app/organization/tests/Integration/",
+      "App\\Tests\\Integration\\Qualification\\": "app/qualification/tests/Integration/",
+      "App\\Tests\\Integration\\Playbook\\": "app/playbook/tests/Integration/"
+    }
+  },
+  "replace": {
+    "paragonie/random_compat": "2.*",
+    "symfony/polyfill-ctype": "*",
+    "symfony/polyfill-iconv": "*",
+    "symfony/polyfill-php72": "*",
+    "symfony/polyfill-php73": "*",
+    "symfony/polyfill-php74": "*",
+    "symfony/polyfill-php80": "*",
+    "symfony/polyfill-php81": "*",
+    "symfony/polyfill-php82": "*",
+    "symfony/polyfill-php83": "*",
+    "symfony/polyfill-php84": "*"
+  },
+  "scripts": {
+    "auto-scripts": {
+      "cache:clear": "symfony-cmd",
+      "assets:install %PUBLIC_DIR%": "symfony-cmd"
+    },
+    "post-install-cmd": [
+      "@auto-scripts"
+    ],
+    "post-update-cmd": [
+      "@auto-scripts"
+    ]
+  },
+  "conflict": {
+    "symfony/symfony": "*"
+  },
+  "extra": {
+    "symfony": {
+      "allow-contrib": false,
+      "require": "7.4.*"
+    }
+  }
+}

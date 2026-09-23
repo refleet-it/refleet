@@ -1,0 +1,38 @@
+# Trivy ignore list for refleet, read by security:trivy:image.
+#
+# Every entry here was verified against THIS project's `trivy image` output and carries the
+# reason it is safe to ignore plus when to revisit. Do not copy IDs from another project's audit,
+# even one on the same base images — an ignore list only has value if each line was earned.
+# Prefer the YAML form over the flat .trivyignore: a secret rule can be scoped to a path, so the
+# scanner stays live for a real secret baked in anywhere else.
+#
+# Re-check on every dunglas/frankenphp bump in backend/Dockerfile: `make trivy-scan-image` prints
+# what the image still carries, and an entry whose finding is gone should go with it.
+
+vulnerabilities:
+    # No fix in Debian 13 as of 1.12.7-php8.5 either. A DoS through crafted XML — the API speaks
+    # JSON and nothing parses XML from a caller, so the worst case is a self-inflicted one.
+    -   id: CVE-2026-6653
+        statement: libxml2 in the debian base, no upstream fix; no untrusted XML is parsed
+
+    # Kernel headers in the image. The container runs on the host's kernel, the package only ever
+    # feeds a compiler, and nothing is compiled at runtime.
+    -   id: CVE-2026-43185
+        statement: linux-libc-dev is build-time headers, the running kernel is the host's
+
+    # Inside the frankenphp Go binary, pulled in by Caddy. The bypass is in an OpenAPI request
+    # validator that none of infra/caddy/Caddyfile* enables. 1.12.7 still ships v0.140.0, so a base
+    # bump does not clear it yet.
+    -   id: GHSA-r277-6w6q-xmqw
+        statement: kin-openapi validation handler is not configured in any Caddyfile
+
+secrets:
+    # Two documented look-alikes of a GitLab PAT, the same ones .gitleaks.toml allow-lists at the
+    # source: a fixture docblock naming what its stored ciphertext decrypts to, and the OpenAPI
+    # example on the connect-GitLab request. Scoped to those two files so a real token copied into
+    # the image anywhere else still fails the scan.
+    -   id: gitlab-pat
+        paths:
+            - /app/fixtures/Factory/Organization/GitLabConnectionFactory.php
+            - /app/app/organization/src/GitLabConnection/Infrastructure/Api/ConnectGitLab/ConnectGitLabRequest.php
+        statement: fixture docblock and OpenAPI example, both invented tokens

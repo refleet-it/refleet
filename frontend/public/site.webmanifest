@@ -1,0 +1,29 @@
+{
+  "name": "Refleet",
+  "short_name": "Refleet",
+  "description": "Run coding agents against your repositories and review what they propose as merge requests.",
+  "lang": "en",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "theme_color": "#ffbc42",
+  "background_color": "#ffffff",
+  "icons": [
+    {
+      "src": "/android-chrome-192x192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/android-chrome-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "categories": ["business"],
+  "screenshots": [],
+  "shortcuts": []
+}

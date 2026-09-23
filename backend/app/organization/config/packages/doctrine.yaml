@@ -1,0 +1,35 @@
+# The organization context owns one connection and one entity manager. They live here so the
+# application that serves this context declares its own database wiring instead of
+# inheriting all eight — see docs/adr/0001-multiple-kernels.md.
+doctrine:
+    dbal:
+        connections:
+            organization:
+                url: '%env(resolve:DATABASE_URL)%'
+                profiling_collect_backtrace: false
+                schema_filter: ~^(organization\.|public\.doctrine_migration_versions)~
+                options:
+                    1002: "SET search_path TO organization, public"
+    orm:
+        default_entity_manager: organization
+        entity_managers:
+            organization:
+                connection: organization
+                naming_strategy: doctrine.orm.naming_strategy.underscore_number_aware
+                metadata_cache_driver:
+                    type: pool
+                    pool: cache.app
+                mappings:
+                    Organization:
+                        type: attribute
+                        is_bundle: false
+                        dir: '%kernel.project_dir%/app/organization/src'
+                        prefix: 'App\Organization'
+                        alias: Organization
+
+when@test:
+    doctrine:
+        dbal:
+            connections:
+                organization:
+                    dbname_suffix: '_test%env(default::TEST_TOKEN)%'

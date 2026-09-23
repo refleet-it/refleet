@@ -1,0 +1,11 @@
+{
+    "require": {
+        "rector/rector": "^2.0"
+    },
+    "autoload": {
+        "psr-4": {
+            "Rector\\Custom\\": "src/"
+        }
+    },
+    "repositories": []
+}

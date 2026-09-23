@@ -1,0 +1,6 @@
+playbook:
+    resource: ../src/Playbook/Infrastructure/Api/
+    type: attribute
+    prefix: /api
+    defaults:
+        _format: json

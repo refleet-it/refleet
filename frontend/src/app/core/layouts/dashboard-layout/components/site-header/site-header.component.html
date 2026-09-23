@@ -1,0 +1,23 @@
+<header class="flex h-16 shrink-0 items-center gap-2 border-b px-4">
+  <!-- eslint-disable-next-line @angular-eslint/template/elements-content -- accessible content (icon + sr-only label) is rendered by HlmSidebarTrigger's own template, invisible to static analysis of this host tag -->
+  <button hlmSidebarTrigger></button>
+  <hlm-separator orientation="vertical" class="mr-2 data-[orientation=vertical]:h-4" />
+  <nav hlmBreadcrumb>
+    <ol hlmBreadcrumbList>
+      @for (crumb of breadcrumbTrail(); track crumb.label; let last = $last) {
+        <li hlmBreadcrumbItem>
+          @if (last) {
+            <a hlmBreadcrumbPage>{{ crumb.label }}</a>
+          } @else if (crumb.link) {
+            <a hlmBreadcrumbLink [link]="[crumb.link]">{{ crumb.label }}</a>
+          } @else {
+            <span>{{ crumb.label }}</span>
+          }
+        </li>
+        @if (!last) {
+          <li hlmBreadcrumbSeparator></li>
+        }
+      }
+    </ol>
+  </nav>
+</header>

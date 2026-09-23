@@ -1,0 +1,20 @@
+# The monolith serves every context, so it needs every context's connection and entity
+# manager. Each one is declared by the context that owns it; this only gathers them.
+imports:
+    - { resource: '../../../identity/config/packages/doctrine.yaml' }
+    - { resource: '../../../file/config/packages/doctrine.yaml' }
+    - { resource: '../../../notification/config/packages/doctrine.yaml' }
+    - { resource: '../../../organization/config/packages/doctrine.yaml' }
+    - { resource: '../../../project/config/packages/doctrine.yaml' }
+    - { resource: '../../../runner/config/packages/doctrine.yaml' }
+    - { resource: '../../../qualification/config/packages/doctrine.yaml' }
+    - { resource: '../../../shift/config/packages/doctrine.yaml' }
+    - { resource: '../../../playbook/config/packages/doctrine.yaml' }
+
+# Each imported file above sets orm.default_entity_manager to its own context (so it boots
+# standalone as its own APP_ID); since that's a scalar, whichever import lands last would
+# otherwise win silently. Restated explicitly here so the monolith's default doesn't depend
+# on import order.
+doctrine:
+    orm:
+        default_entity_manager: identity

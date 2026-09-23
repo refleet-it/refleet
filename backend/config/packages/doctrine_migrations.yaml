@@ -1,0 +1,14 @@
+doctrine_migrations:
+    migrations_paths:
+        'DoctrineMigrations\Identity': '%kernel.project_dir%/migrations/Identity'
+        'DoctrineMigrations\File': '%kernel.project_dir%/migrations/File'
+        'DoctrineMigrations\Notification': '%kernel.project_dir%/migrations/Notification'
+        'DoctrineMigrations\Organization': '%kernel.project_dir%/migrations/Organization'
+        'DoctrineMigrations\Project': '%kernel.project_dir%/migrations/Project'
+        'DoctrineMigrations\Runner': '%kernel.project_dir%/migrations/Runner'
+        'DoctrineMigrations\Qualification': '%kernel.project_dir%/migrations/Qualification'
+        'DoctrineMigrations\Shift': '%kernel.project_dir%/migrations/Shift'
+        'DoctrineMigrations\Playbook': '%kernel.project_dir%/migrations/Playbook'
+    enable_profiler: false
+    services:
+        Doctrine\Migrations\Metadata\Storage\MetadataStorage: App\Shared\Infrastructure\Doctrine\Migrations\SafeTableMetadataStorage

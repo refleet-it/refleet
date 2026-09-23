@@ -1,0 +1,205 @@
+<div class="flex flex-col gap-6">
+  @if (overview(); as data) {
+    <div class="flex flex-wrap items-center justify-between gap-3">
+      <div>
+        <h1 class="text-2xl font-semibold">{{ data.organization?.name }}</h1>
+        <p class="text-muted-foreground text-sm">
+          Your role: <span class="capitalize">{{ data.role }}</span>
+        </p>
+      </div>
+      @if (isOwner) {
+        <a hlmBtn routerLink="/dashboard/team/new">Invite Teammate</a>
+      }
+    </div>
+
+    <div hlmCard>
+      <div hlmCardHeader>
+        <p hlmCardTitle class="text-xl">Employees</p>
+        <p hlmCardDescription>People in your organization.</p>
+      </div>
+      <div hlmCardContent>
+        @if (employeesList.isInitialLoading()) {
+          <div class="overflow-x-auto">
+            <table class="w-full text-sm">
+              <thead>
+                <tr class="border-border border-b text-left">
+                  <th class="py-2 pr-4 font-medium">Email</th>
+                  <th class="py-2 font-medium">Role</th>
+                </tr>
+              </thead>
+              <tbody>
+                <app-table-skeleton-rows [columns]="employeesSkeletonColumns" />
+              </tbody>
+            </table>
+          </div>
+        } @else if (employeesList.error()) {
+          <app-list-error message="Could not load employees." (retry)="employeesList.refresh()" />
+        } @else {
+          <div class="overflow-x-auto">
+            <table class="w-full text-sm">
+              <thead>
+                <tr class="border-border border-b text-left">
+                  <th class="py-2 pr-4 font-medium">Email</th>
+                  <th class="py-2 font-medium">Role</th>
+                  @if (isOwner) {
+                    <th class="py-2 pl-4 font-medium"></th>
+                  }
+                </tr>
+              </thead>
+              <tbody>
+                @for (employee of employeesList.items(); track employee.accountId) {
+                  <tr class="border-border border-b last:border-0">
+                    <td class="py-2 pr-4 font-medium">{{ employee.email }}</td>
+                    <td class="text-muted-foreground py-2 capitalize">{{ employee.role }}</td>
+                    @if (isOwner) {
+                      <td class="py-2 pl-4 text-right">
+                        @if (employee.accountId !== currentAccountId) {
+                          <button
+                            hlmBtn
+                            variant="ghost"
+                            size="sm"
+                            [disabled]="transferringAccountId() === employee.accountId"
+                            (click)="transferOwnership(employee.accountId, employee.email)"
+                          >
+                            {{
+                              transferringAccountId() === employee.accountId
+                                ? 'Transferring…'
+                                : 'Make owner'
+                            }}
+                          </button>
+                          <button
+                            hlmBtn
+                            variant="ghost"
+                            size="sm"
+                            [disabled]="removingAccountId() === employee.accountId"
+                            (click)="removeEmployee(employee.accountId, employee.email)"
+                          >
+                            {{
+                              removingAccountId() === employee.accountId ? 'Removing…' : 'Remove'
+                            }}
+                          </button>
+                        }
+                      </td>
+                    }
+                  </tr>
+                }
+              </tbody>
+            </table>
+          </div>
+          <hlm-numbered-pagination
+            class="mt-4"
+            [(currentPage)]="employeesList.page"
+            [(itemsPerPage)]="employeesList.pageSize"
+            [totalItems]="employeesList.pagination()?.total ?? 0"
+          />
+        }
+      </div>
+    </div>
+
+    @if (isOwner) {
+      <div hlmCard>
+        <div hlmCardHeader>
+          <p hlmCardTitle class="text-xl">Pending Invitations</p>
+          <p hlmCardDescription>Invited teammates who haven't accepted yet.</p>
+        </div>
+        <div hlmCardContent>
+          @if (invitationsList.isInitialLoading()) {
+            <div class="overflow-x-auto">
+              <table class="w-full text-sm">
+                <thead>
+                  <tr class="border-border border-b text-left">
+                    <th class="py-2 pr-4 font-medium">Email</th>
+                    <th class="py-2 font-medium">Expires</th>
+                    <th class="py-2 pl-4 font-medium"></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <app-table-skeleton-rows [rows]="2" [columns]="invitationsSkeletonColumns" />
+                </tbody>
+              </table>
+            </div>
+          } @else if (invitationsList.error()) {
+            <app-list-error
+              message="Could not load pending invitations."
+              (retry)="invitationsList.refresh()"
+            />
+          } @else if (0 === invitationsList.items().length) {
+            <p class="text-muted-foreground text-sm">No pending invitations.</p>
+          } @else {
+            <div class="overflow-x-auto">
+              <table class="w-full text-sm">
+                <thead>
+                  <tr class="border-border border-b text-left">
+                    <th class="py-2 pr-4 font-medium">Email</th>
+                    <th class="py-2 font-medium">Expires</th>
+                    <th class="py-2 pl-4 font-medium"></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  @for (invitation of invitationsList.items(); track invitation.id) {
+                    <tr class="border-border border-b last:border-0">
+                      <td class="py-2 pr-4 font-medium">{{ invitation.email }}</td>
+                      <td class="text-muted-foreground py-2">
+                        {{ invitation.expiresAt | date: 'mediumDate' }}
+                      </td>
+                      <td class="py-2 pl-4 text-right">
+                        <button
+                          hlmBtn
+                          variant="ghost"
+                          size="sm"
+                          [disabled]="cancellingInvitationId() === invitation.id"
+                          (click)="cancelInvitation(invitation.id)"
+                        >
+                          {{
+                            cancellingInvitationId() === invitation.id ? 'Cancelling…' : 'Cancel'
+                          }}
+                        </button>
+                      </td>
+                    </tr>
+                  }
+                </tbody>
+              </table>
+            </div>
+            <hlm-numbered-pagination
+              class="mt-4"
+              [(currentPage)]="invitationsList.page"
+              [(itemsPerPage)]="invitationsList.pageSize"
+              [totalItems]="invitationsList.pagination()?.total ?? 0"
+            />
+          }
+        </div>
+      </div>
+    }
+  } @else if (isLoading()) {
+    <div>
+      <span hlmSkeleton class="block h-8 w-48"></span>
+      <span hlmSkeleton class="mt-2 block h-4 w-32"></span>
+    </div>
+
+    <div hlmCard>
+      <div hlmCardHeader>
+        <p hlmCardTitle class="text-xl">Employees</p>
+        <p hlmCardDescription>People in your organization.</p>
+      </div>
+      <div hlmCardContent>
+        <div class="overflow-x-auto">
+          <table class="w-full text-sm">
+            <thead>
+              <tr class="border-border border-b text-left">
+                <th class="py-2 pr-4 font-medium">Email</th>
+                <th class="py-2 font-medium">Role</th>
+              </tr>
+            </thead>
+            <tbody>
+              <app-table-skeleton-rows [columns]="employeesSkeletonColumns" />
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  } @else if (loadError()) {
+    <app-list-error message="Could not load your organization." (retry)="retryOverview()" />
+  } @else {
+    <p class="text-muted-foreground text-sm">No organization found.</p>
+  }
+</div>

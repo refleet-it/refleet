@@ -1,0 +1,204 @@
+<div class="flex flex-col gap-6">
+  <div class="flex flex-wrap items-center justify-between gap-3">
+    <div>
+      <h1 class="text-2xl font-semibold">Dashboard</h1>
+      <p class="text-muted-foreground text-sm">
+        Welcome back{{ currentUser ? ',' : '' }} {{ currentUser?.email }}.
+      </p>
+    </div>
+    <div class="flex flex-wrap items-center gap-2">
+      <a hlmBtn variant="outline" routerLink="/dashboard/settings">Connect GitLab</a>
+      <a hlmBtn variant="outline" routerLink="/dashboard/team/new">Invite teammate</a>
+      <a hlmBtn routerLink="/dashboard/shifts/new">New Shift</a>
+    </div>
+  </div>
+
+  @if (loadError(); as error) {
+    <div hlmCard>
+      <div hlmCardContent class="flex flex-col items-center gap-3 py-10 text-center">
+        <p class="text-lg font-medium">Could not load dashboard</p>
+        <p class="text-muted-foreground max-w-md text-sm">{{ error }}</p>
+        <button hlmBtn variant="outline" (click)="retry()">Retry</button>
+      </div>
+    </div>
+  } @else {
+    @if (zeroState(); as state) {
+      <div hlmCard>
+        <div hlmCardContent class="flex flex-col items-center gap-3 py-10 text-center">
+          @if ('no-gitlab' === state) {
+            <p class="text-lg font-medium">Connect GitLab to get started</p>
+            <p class="text-muted-foreground max-w-md text-sm">
+              Refleet syncs your projects, tracks runner fleet health, and orchestrates
+              qualifications and shifts once your GitLab group is connected.
+            </p>
+            <a hlmBtn routerLink="/dashboard/settings">Connect GitLab</a>
+          } @else {
+            <p class="text-lg font-medium">No projects synced yet</p>
+            <p class="text-muted-foreground max-w-md text-sm">
+              Your GitLab connection is active, but no projects have been synced yet. Trigger a sync
+              from organization settings.
+            </p>
+            <a hlmBtn routerLink="/dashboard/settings">Go to GitLab settings</a>
+          }
+        </div>
+      </div>
+    } @else {
+      <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <div hlmCard>
+          <div hlmCardHeader>
+            <p hlmCardDescription>Projects</p>
+            @if (isLoading()) {
+              <span hlmSkeleton class="mt-1 block h-7 w-10"></span>
+            } @else {
+              <p hlmCardTitle class="text-xl">{{ projectsCount() }}</p>
+            }
+          </div>
+        </div>
+
+        <div hlmCard>
+          <div hlmCardHeader>
+            <p hlmCardDescription>Runners online</p>
+            @if (isLoading()) {
+              <span hlmSkeleton class="mt-1 block h-7 w-10"></span>
+            } @else {
+              <p hlmCardTitle class="text-xl">{{ runnersOnlineCount() }}</p>
+            }
+          </div>
+        </div>
+
+        <div hlmCard>
+          <div hlmCardHeader>
+            <p hlmCardDescription>Active shifts</p>
+            @if (isLoading()) {
+              <span hlmSkeleton class="mt-1 block h-7 w-10"></span>
+            } @else {
+              <p hlmCardTitle class="text-xl">{{ activeShiftsCount() }}</p>
+            }
+          </div>
+        </div>
+
+        <div hlmCard>
+          <div hlmCardHeader>
+            <p hlmCardDescription>Completed this week</p>
+            @if (isLoading()) {
+              <span hlmSkeleton class="mt-1 block h-7 w-14"></span>
+            } @else {
+              <p hlmCardTitle class="text-xl">{{ completedThisWeekLabel() }}</p>
+              <p class="text-muted-foreground text-xs">{{ completedThisWeekDetail() }}</p>
+            }
+          </div>
+        </div>
+      </div>
+
+      <div class="grid gap-4 lg:grid-cols-3">
+        <div hlmCard class="lg:col-span-2">
+          <div hlmCardHeader>
+            <p hlmCardTitle class="text-xl">Recent shifts</p>
+            <p hlmCardDescription>The 5 most recently created shifts.</p>
+          </div>
+          <div hlmCardContent>
+            @if (isLoading()) {
+              <div class="overflow-x-auto">
+                <table class="w-full text-sm">
+                  <thead>
+                    <tr class="border-border border-b text-left">
+                      <th class="py-2 pr-4 font-medium">Name</th>
+                      <th class="py-2 pr-4 font-medium">Status</th>
+                      <th class="py-2 font-medium">Created</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <app-table-skeleton-rows [columns]="recentShiftsSkeletonColumns" />
+                  </tbody>
+                </table>
+              </div>
+            } @else if (0 === recentShifts().length) {
+              <p class="text-muted-foreground text-sm">
+                No shifts yet.
+                <a class="text-primary underline" routerLink="/dashboard/shifts/new"
+                  >Create the first one.</a
+                >
+              </p>
+            } @else {
+              <div class="overflow-x-auto">
+                <table class="w-full text-sm">
+                  <thead>
+                    <tr class="border-border border-b text-left">
+                      <th class="py-2 pr-4 font-medium">Name</th>
+                      <th class="py-2 pr-4 font-medium">Status</th>
+                      <th class="py-2 font-medium">Created</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    @for (shift of recentShifts(); track shift.id) {
+                      <tr class="border-border hover:bg-muted/50 border-b last:border-0">
+                        <td class="py-2 pr-4 font-medium">
+                          <a
+                            [routerLink]="['/dashboard/shifts', shift.id]"
+                            class="hover:underline"
+                            >{{ shift.title }}</a
+                          >
+                        </td>
+                        <td class="py-2 pr-4">
+                          <app-status-badge
+                            [variant]="statusBadgeVariant(shift.status)"
+                            [working]="isAgentWorking(shift.status)"
+                          >
+                            {{ statusLabels[shift.status] }}
+                          </app-status-badge>
+                        </td>
+                        <td class="text-muted-foreground py-2">
+                          {{ formatDate(shift.createdAt) }}
+                        </td>
+                      </tr>
+                    }
+                  </tbody>
+                </table>
+              </div>
+            }
+          </div>
+        </div>
+
+        <div hlmCard>
+          <div hlmCardHeader>
+            <p hlmCardTitle class="text-xl">Runner fleet</p>
+            <p hlmCardDescription>Status of your registered runners.</p>
+          </div>
+          <div hlmCardContent>
+            @if (isLoading()) {
+              <div class="flex flex-col gap-2 text-sm">
+                @for (row of runnerFleetSkeletonRows; track row) {
+                  <div class="flex items-center justify-between">
+                    <span hlmSkeleton class="h-4 w-12" [style.animation-delay.ms]="row * 75"></span>
+                    <span hlmSkeleton class="h-4 w-6" [style.animation-delay.ms]="row * 75"></span>
+                  </div>
+                }
+              </div>
+              <span hlmSkeleton class="mt-4 block h-9 w-full"></span>
+            } @else {
+              @if (runnerStatusCounts(); as counts) {
+                <div class="flex flex-col gap-2 text-sm">
+                  <div class="flex items-center justify-between">
+                    <span class="text-muted-foreground">Working</span>
+                    <span class="font-medium">{{ counts.working }}</span>
+                  </div>
+                  <div class="flex items-center justify-between">
+                    <span class="text-muted-foreground">Idle</span>
+                    <span class="font-medium">{{ counts.idle }}</span>
+                  </div>
+                  <div class="flex items-center justify-between">
+                    <span class="text-muted-foreground">Offline</span>
+                    <span class="font-medium">{{ counts.offline }}</span>
+                  </div>
+                </div>
+                <a hlmBtn variant="outline" class="mt-4 w-full" routerLink="/dashboard/runners"
+                  >View runners</a
+                >
+              }
+            }
+          </div>
+        </div>
+      </div>
+    }
+  }
+</div>

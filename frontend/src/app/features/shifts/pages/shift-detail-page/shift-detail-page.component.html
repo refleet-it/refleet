@@ -1,0 +1,637 @@
+<div class="flex flex-col gap-6">
+  <div>
+    <a
+      [routerLink]="shift()?.archivedAt ? '/dashboard/shifts/archive' : '/dashboard/shifts'"
+      class="text-muted-foreground text-sm hover:underline"
+      >&larr; Back to {{ shift()?.archivedAt ? 'archived shifts' : 'shifts' }}</a
+    >
+  </div>
+
+  @if (shift(); as shiftDetail) {
+    <div class="flex flex-wrap items-start justify-between gap-3">
+      <div class="min-w-0">
+        <div class="flex flex-wrap items-center gap-2">
+          <h1 class="text-2xl font-semibold">{{ shiftDetail.title }}</h1>
+          <app-status-badge
+            [variant]="statusBadgeVariant(shiftDetail.status)"
+            [working]="isAgentWorking(shiftDetail.status)"
+          >
+            {{ statusLabels[shiftDetail.status] }}
+          </app-status-badge>
+          @if (shiftDetail.archivedAt) {
+            <span hlmBadge variant="outline">Archived</span>
+          }
+        </div>
+        @if (shiftDetail.description) {
+          <p class="text-muted-foreground mt-1 text-sm">{{ shiftDetail.description }}</p>
+        }
+      </div>
+
+      @if (!shiftDetail.archivedAt) {
+        <div class="flex flex-wrap items-center gap-2">
+          @if ('draft' === shiftDetail.status && isChangeDefined() && !showChangeForm()) {
+            <button hlmBtn size="sm" [disabled]="isStartingChange()" (click)="startChange()">
+              @if (isStartingChange()) {
+                Starting…
+              } @else {
+                Start Change
+              }
+            </button>
+            <button hlmBtn variant="outline" size="sm" (click)="toggleChangeFormVisibility()">
+              Edit Change
+            </button>
+          }
+          @if (canArchive(shiftDetail)) {
+            <button
+              hlmBtn
+              variant="outline"
+              size="sm"
+              [disabled]="isArchiving()"
+              (click)="archive()"
+            >
+              @if (isArchiving()) {
+                Archiving…
+              } @else {
+                Archive
+              }
+            </button>
+          }
+          @if (!isTerminalStatus(shiftDetail.status)) {
+            <button
+              hlmBtn
+              variant="destructive"
+              size="sm"
+              [disabled]="showCancelForm()"
+              (click)="toggleCancelForm()"
+            >
+              Cancel Shift
+            </button>
+          }
+        </div>
+      }
+    </div>
+
+    @if (shiftDetail.archivedAt) {
+      <p class="text-muted-foreground text-sm">
+        Archived on {{ formatDate(shiftDetail.archivedAt) }}. Its targets are kept, but it can no
+        longer be changed.
+      </p>
+    }
+
+    @if (actionError()) {
+      <p class="text-destructive text-sm">{{ actionError() }}</p>
+    }
+
+    <div class="grid gap-6 xl:grid-cols-[minmax(0,1fr)_20rem] xl:items-start">
+      <div class="flex min-w-0 flex-col gap-6">
+        @if (showCancelForm()) {
+          <div hlmCard>
+            <div hlmCardHeader>
+              <p hlmCardTitle class="text-xl">Cancel Shift</p>
+              <p hlmCardDescription>Optionally say why, then confirm.</p>
+            </div>
+            <div hlmCardContent class="flex flex-col gap-3">
+              <hlm-field>
+                <label hlmLabel for="cancel-reason">Cancellation Reason (optional)</label>
+                <input
+                  hlmInput
+                  id="cancel-reason"
+                  class="w-full"
+                  placeholder="E.g. the change is no longer needed"
+                  [ngModel]="cancelReason()"
+                  (ngModelChange)="cancelReason.set($event)"
+                  name="cancelReason"
+                />
+              </hlm-field>
+              <div class="flex gap-2">
+                <button
+                  hlmBtn
+                  variant="destructive"
+                  [disabled]="isCancelling()"
+                  (click)="confirmCancel()"
+                >
+                  @if (isCancelling()) {
+                    Cancelling…
+                  } @else {
+                    Confirm Cancellation
+                  }
+                </button>
+                <button hlmBtn variant="ghost" (click)="toggleCancelForm()">Back</button>
+              </div>
+            </div>
+          </div>
+        }
+
+        @if (
+          !shiftDetail.archivedAt &&
+          'draft' === shiftDetail.status &&
+          (!isChangeDefined() || showChangeForm())
+        ) {
+          <div hlmCard>
+            <div hlmCardHeader>
+              <p hlmCardTitle class="text-xl">Define Change</p>
+              <p hlmCardDescription>How the runner should change each target project.</p>
+            </div>
+            <div hlmCardContent>
+              <form class="flex flex-col gap-4" (ngSubmit)="submitDefineChange()">
+                <app-playbook-picker
+                  appliesTo="change"
+                  idPrefix="change"
+                  [rules]="changeForm().changeRules"
+                  [prompt]="changeForm().changePrompt"
+                  (applied)="applyPlaybooks($event)"
+                />
+
+                <hlm-field>
+                  <label hlmLabel for="change-rules">Rules</label>
+                  <textarea
+                    hlmTextarea
+                    id="change-rules"
+                    class="w-full font-mono text-xs"
+                    rows="6"
+                    placeholder="Standing instructions the agent follows before the change — composed from the rule playbooks above, or written here."
+                    [ngModel]="changeForm().changeRules"
+                    (ngModelChange)="updateChangeForm('changeRules', $event)"
+                    name="changeRules"
+                  ></textarea>
+                  <p class="text-muted-foreground text-xs">
+                    Sent verbatim as a "## Rules" section in front of the change. Leave empty for
+                    none.
+                  </p>
+                </hlm-field>
+
+                <hlm-field>
+                  <label hlmLabel for="change-prompt">AI Prompt</label>
+                  <textarea
+                    hlmTextarea
+                    id="change-prompt"
+                    class="w-full"
+                    rows="5"
+                    placeholder="Bump acme/legacy-lib to ^2.0 and run composer update."
+                    [ngModel]="changeForm().changePrompt"
+                    (ngModelChange)="updateChangeForm('changePrompt', $event)"
+                    name="changePrompt"
+                  ></textarea>
+                  <p class="text-muted-foreground text-xs">
+                    Tip: run it on a single target first (the play button next to a target) to check
+                    the prompt before starting the whole shift.
+                  </p>
+                </hlm-field>
+
+                <hlm-field>
+                  <label hlmLabel for="change-agent">Agent</label>
+                  <select
+                    id="change-agent"
+                    class="border-input bg-background h-9 w-full rounded-md border px-3 text-sm sm:w-64"
+                    [ngModel]="changeForm().changeEngine"
+                    (ngModelChange)="updateChangeEngine($event)"
+                    name="changeAgent"
+                  >
+                    <option value="claude">Claude Code</option>
+                    <option value="kiro">Kiro</option>
+                  </select>
+                </hlm-field>
+
+                @if (modelsForEngine(changeForm().changeEngine).length > 0) {
+                  <hlm-field>
+                    <label hlmLabel for="change-model">Model</label>
+                    <select
+                      id="change-model"
+                      class="border-input bg-background h-9 w-full rounded-md border px-3 text-sm sm:w-64"
+                      [ngModel]="changeForm().changeModel"
+                      (ngModelChange)="updateChangeForm('changeModel', $event)"
+                      name="changeModel"
+                    >
+                      <option value="">Auto (runner default)</option>
+                      @for (model of modelsForEngine(changeForm().changeEngine); track model) {
+                        <option [value]="model">{{ model }}</option>
+                      }
+                    </select>
+                  </hlm-field>
+                }
+
+                <app-prompt-preview [load]="previewChangePrompt" />
+
+                <div class="flex gap-2">
+                  <button hlmBtn type="submit" class="self-start" [disabled]="isDefiningChange()">
+                    @if (isDefiningChange()) {
+                      Saving…
+                    } @else {
+                      Save Change Criteria
+                    }
+                  </button>
+                  @if (isChangeDefined()) {
+                    <button
+                      hlmBtn
+                      type="button"
+                      variant="ghost"
+                      (click)="toggleChangeFormVisibility()"
+                    >
+                      Cancel Edit
+                    </button>
+                  }
+                </div>
+              </form>
+            </div>
+          </div>
+        }
+
+        <div hlmCard>
+          <div hlmCardHeader>
+            <p hlmCardTitle class="text-xl">Targets ({{ targetsList.pagination()?.total ?? 0 }})</p>
+            <p hlmCardDescription>Projects covered by this shift, with change results.</p>
+          </div>
+          <div hlmCardContent>
+            @if (targetsList.isInitialLoading()) {
+              <div class="overflow-x-auto">
+                <table class="w-full text-sm">
+                  <thead>
+                    <tr class="border-border border-b text-left">
+                      <th class="py-2 pr-4 font-medium">Project</th>
+                      <th class="py-2 pr-4 font-medium">Status</th>
+                      <th class="w-full py-2 pr-4 font-medium">Result</th>
+                      <th class="py-2 font-medium"><span class="sr-only">Actions</span></th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <app-table-skeleton-rows [columns]="targetsSkeletonColumns" />
+                  </tbody>
+                </table>
+              </div>
+            } @else if (targetsList.error()) {
+              <app-list-error message="Could not load targets." (retry)="targetsList.refresh()" />
+            } @else if (0 === targetsList.items().length) {
+              <p class="text-muted-foreground text-sm">No targets.</p>
+            } @else {
+              <div class="overflow-x-auto">
+                <table class="w-full text-sm">
+                  <thead>
+                    <tr class="border-border border-b text-left">
+                      <th class="py-2 pr-4 font-medium">Project</th>
+                      <th class="py-2 pr-4 font-medium">Status</th>
+                      <th class="w-full py-2 pr-4 font-medium">Result</th>
+                      <th class="py-2 font-medium"><span class="sr-only">Actions</span></th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    @for (target of targetsList.items(); track target.id) {
+                      <tr class="border-border border-b last:border-0">
+                        <td class="max-w-52 py-2 pr-4">
+                          <div class="truncate font-medium" [title]="target.projectName">
+                            {{ target.projectName }}
+                          </div>
+                          <div
+                            class="text-muted-foreground truncate text-xs"
+                            [title]="target.projectPath"
+                          >
+                            {{ target.projectPath }}
+                          </div>
+                        </td>
+                        <td class="py-2 pr-4 whitespace-nowrap">
+                          <app-status-badge
+                            [variant]="targetStatusBadgeVariant(target.status)"
+                            [working]="isAgentWorkingOnTarget(target.status)"
+                            [title]="targetStatusTooltip(target)"
+                          >
+                            {{ targetStatusLabels[target.status] }}
+                          </app-status-badge>
+                          @if (target.runnerName) {
+                            <div class="text-muted-foreground mt-1 text-xs">
+                              @if (target.runnerId) {
+                                <a
+                                  [routerLink]="['/dashboard/runners', target.runnerId]"
+                                  class="hover:underline"
+                                >
+                                  {{ target.runnerName }}
+                                </a>
+                              } @else {
+                                {{ target.runnerName }}
+                              }
+                            </div>
+                          }
+                        </td>
+                        <td class="text-muted-foreground w-full max-w-0 min-w-32 py-2 pr-4">
+                          <div class="truncate" [title]="resultSummary(target)">
+                            {{ resultSummary(target) }}
+                          </div>
+                          @if (hasResultDetail(target)) {
+                            <button
+                              hlmBtn
+                              size="sm"
+                              variant="link"
+                              class="h-auto p-0 text-xs"
+                              (click)="showResultDetail(target)"
+                            >
+                              View full result
+                            </button>
+                          }
+                        </td>
+                        <td class="py-2">
+                          <div class="flex flex-wrap items-center justify-end gap-1.5">
+                            @if (canMarkMerged(target)) {
+                              <button
+                                hlmBtn
+                                size="sm"
+                                variant="ghost"
+                                [disabled]="markingMergedTargetId() === target.id"
+                                (click)="markAsMerged(target)"
+                              >
+                                @if (markingMergedTargetId() === target.id) {
+                                  Marking…
+                                } @else {
+                                  Mark as merged
+                                }
+                              </button>
+                            }
+                            @if (target.mergeRequestUrl) {
+                              <a
+                                hlmBtn
+                                variant="outline"
+                                size="sm"
+                                [href]="target.mergeRequestUrl"
+                                target="_blank"
+                                rel="noopener"
+                                title="Open the merge request in GitLab"
+                              >
+                                <ng-icon name="lucideExternalLink" class="mr-1.5" />
+                                MR
+                              </a>
+                            }
+                            @if (targetRunAction(target); as action) {
+                              <button
+                                hlmBtn
+                                size="sm"
+                                variant="outline"
+                                [disabled]="runningTargetId() !== null"
+                                [title]="
+                                  'run' === action
+                                    ? 'Run the change on this target only, as a trial'
+                                    : 'Run the change again — the existing merge request is updated'
+                                "
+                                (click)="runTarget(target)"
+                              >
+                                @if (runningTargetId() === target.id) {
+                                  Starting…
+                                } @else {
+                                  <ng-icon
+                                    [name]="'run' === action ? 'lucidePlay' : 'lucideRotateCw'"
+                                    class="mr-1.5"
+                                  />
+                                  {{ 'run' === action ? 'Run' : 'Re-run' }}
+                                }
+                              </button>
+                            }
+                          </div>
+                        </td>
+                      </tr>
+                    }
+                  </tbody>
+                </table>
+              </div>
+              <hlm-numbered-pagination
+                class="mt-4"
+                [(currentPage)]="targetsList.page"
+                [(itemsPerPage)]="targetsList.pageSize"
+                [totalItems]="targetsList.pagination()?.total ?? 0"
+              />
+            }
+          </div>
+        </div>
+      </div>
+
+      <aside class="order-first flex flex-col gap-4 xl:sticky xl:top-4 xl:order-last">
+        <div hlmCard>
+          <div hlmCardHeader>
+            <p hlmCardTitle>Progress</p>
+          </div>
+          <div hlmCardContent class="flex flex-col gap-3">
+            @if (0 === targetTotal()) {
+              <p class="text-muted-foreground text-sm">No targets in this shift.</p>
+            } @else {
+              <div class="flex items-center gap-3">
+                <hlm-progress [value]="progressPercent()" class="w-full">
+                  <hlm-progress-indicator />
+                </hlm-progress>
+                <span class="text-muted-foreground text-sm whitespace-nowrap"
+                  >{{ progressPercent() }}%</span
+                >
+              </div>
+              <div class="flex flex-wrap gap-2">
+                @for (entry of statusBreakdownEntries(); track entry.status) {
+                  <span hlmBadge variant="outline" [title]="entry.description"
+                    >{{ entry.label }}: {{ entry.count }}</span
+                  >
+                }
+              </div>
+            }
+
+            @if ('applying_change' === shiftDetail.status) {
+              <p class="text-muted-foreground text-xs">
+                Being processed by a runner. This page refreshes automatically.
+              </p>
+            }
+            @if ('draft' === shiftDetail.status && hasTrialRunInProgress()) {
+              <p class="text-muted-foreground text-xs">
+                A trial run is in progress. The change stays editable until you start the whole
+                shift.
+              </p>
+            }
+            @if (isTerminalStatus(shiftDetail.status) && !shiftDetail.archivedAt) {
+              <p class="text-muted-foreground text-xs">
+                This shift has been completed. No further actions are available.
+              </p>
+            }
+          </div>
+        </div>
+
+        <div hlmCard>
+          <div hlmCardHeader>
+            <p hlmCardTitle>Change</p>
+            <p hlmCardDescription>What the runner applies to each target project.</p>
+          </div>
+          <div hlmCardContent>
+            @if (shiftDetail.changeMode) {
+              <dl class="flex flex-col gap-3 text-sm">
+                @if (shiftDetail.changeSources.length > 0) {
+                  <div>
+                    <dt class="text-muted-foreground text-xs font-medium">Playbooks</dt>
+                    <dd class="mt-1 flex flex-wrap gap-1">
+                      @for (source of shiftDetail.changeSources; track source.id) {
+                        <span
+                          hlmBadge
+                          [variant]="'task' === source.kind ? 'default' : 'secondary'"
+                          class="text-[10px]"
+                        >
+                          {{ source.name }}
+                        </span>
+                      }
+                    </dd>
+                  </div>
+                }
+                @if (shiftDetail.changeRules) {
+                  <div>
+                    <dt class="text-muted-foreground text-xs font-medium">Rules</dt>
+                    <dd class="mt-0.5 line-clamp-3 break-words whitespace-pre-wrap">
+                      {{ shiftDetail.changeRules }}
+                    </dd>
+                  </div>
+                }
+                <div>
+                  <dt class="text-muted-foreground text-xs font-medium">Prompt</dt>
+                  <dd class="mt-0.5 line-clamp-3 break-words whitespace-pre-wrap">
+                    {{ shiftDetail.changePrompt }}
+                  </dd>
+                  <button
+                    hlmBtn
+                    size="sm"
+                    variant="link"
+                    class="mt-1 h-auto p-0 text-xs"
+                    (click)="showPrompt()"
+                  >
+                    View full prompt as sent to the agent
+                  </button>
+                </div>
+                <div>
+                  <dt class="text-muted-foreground text-xs font-medium">Agent</dt>
+                  <dd class="mt-0.5">
+                    {{ criteriaEngineLabels[shiftDetail.changeEngine ?? 'claude'] }}
+                  </dd>
+                </div>
+                @if (shiftDetail.changeModel) {
+                  <div>
+                    <dt class="text-muted-foreground text-xs font-medium">Model</dt>
+                    <dd class="mt-0.5 break-all">{{ shiftDetail.changeModel }}</dd>
+                  </div>
+                }
+              </dl>
+            } @else {
+              <p class="text-muted-foreground text-sm">Not defined yet.</p>
+            }
+          </div>
+        </div>
+
+        <div hlmCard>
+          <div hlmCardHeader>
+            <p hlmCardTitle>Details</p>
+          </div>
+          <div hlmCardContent>
+            <dl class="flex flex-col gap-3 text-sm">
+              @if (shiftDetail.qualificationId) {
+                <div>
+                  <dt class="text-muted-foreground text-xs font-medium">Source Qualification</dt>
+                  <dd class="mt-0.5">
+                    <a
+                      [routerLink]="['/dashboard/qualifications', shiftDetail.qualificationId]"
+                      class="text-primary hover:underline"
+                    >
+                      View qualification
+                    </a>
+                  </dd>
+                </div>
+              }
+              <div>
+                <dt class="text-muted-foreground text-xs font-medium">Created</dt>
+                <dd class="mt-0.5">{{ formatDate(shiftDetail.createdAt) }}</dd>
+              </div>
+              <div>
+                <dt class="text-muted-foreground text-xs font-medium">Change Started</dt>
+                <dd class="mt-0.5">{{ formatDate(shiftDetail.changeStartedAt) }}</dd>
+              </div>
+              <div>
+                <dt class="text-muted-foreground text-xs font-medium">Completed</dt>
+                <dd class="mt-0.5">{{ formatDate(shiftDetail.completedAt) }}</dd>
+              </div>
+              @if (shiftDetail.archivedAt) {
+                <div>
+                  <dt class="text-muted-foreground text-xs font-medium">Archived</dt>
+                  <dd class="mt-0.5">{{ formatDate(shiftDetail.archivedAt) }}</dd>
+                </div>
+              }
+              @if (shiftDetail.cancelReason) {
+                <div>
+                  <dt class="text-muted-foreground text-xs font-medium">Cancellation Reason</dt>
+                  <dd class="text-destructive mt-0.5">{{ shiftDetail.cancelReason }}</dd>
+                </div>
+              }
+            </dl>
+          </div>
+        </div>
+      </aside>
+    </div>
+  } @else if (isLoading()) {
+    <div class="flex flex-wrap items-start justify-between gap-3">
+      <div>
+        <span hlmSkeleton class="block h-8 w-64"></span>
+        <span hlmSkeleton class="mt-2 block h-4 w-80"></span>
+      </div>
+      <div class="flex items-center gap-2">
+        <span hlmSkeleton class="h-8 w-28"></span>
+        <span hlmSkeleton class="h-8 w-28"></span>
+      </div>
+    </div>
+
+    <div class="grid gap-6 xl:grid-cols-[minmax(0,1fr)_20rem] xl:items-start">
+      <div hlmCard class="min-w-0">
+        <div hlmCardHeader>
+          <span hlmSkeleton class="block h-6 w-32"></span>
+          <span hlmSkeleton class="mt-1 block h-4 w-56"></span>
+        </div>
+        <div hlmCardContent>
+          <div class="overflow-x-auto">
+            <table class="w-full text-sm">
+              <thead>
+                <tr class="border-border border-b text-left">
+                  <th class="py-2 pr-4 font-medium">Project</th>
+                  <th class="py-2 pr-4 font-medium">Status</th>
+                  <th class="w-full py-2 pr-4 font-medium">Result</th>
+                  <th class="py-2 font-medium"><span class="sr-only">Actions</span></th>
+                </tr>
+              </thead>
+              <tbody>
+                <app-table-skeleton-rows [columns]="targetsSkeletonColumns" />
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <div class="order-first flex flex-col gap-4 lg:order-last">
+        <div hlmCard>
+          <div hlmCardHeader>
+            <span hlmSkeleton class="block h-5 w-24"></span>
+          </div>
+          <div hlmCardContent class="flex flex-col gap-3">
+            <span hlmSkeleton class="h-2.5 w-full"></span>
+            <div class="flex flex-wrap gap-2">
+              <span hlmSkeleton class="h-6 w-24"></span>
+              <span hlmSkeleton class="h-6 w-24"></span>
+            </div>
+          </div>
+        </div>
+        <div hlmCard>
+          <div hlmCardHeader>
+            <span hlmSkeleton class="block h-5 w-24"></span>
+            <span hlmSkeleton class="mt-1 block h-4 w-48"></span>
+          </div>
+          <div hlmCardContent class="flex flex-col gap-3">
+            <span hlmSkeleton class="h-5 w-32"></span>
+            <span hlmSkeleton class="h-4 w-full"></span>
+            <span hlmSkeleton class="h-4 w-3/4"></span>
+          </div>
+        </div>
+        <div hlmCard>
+          <div hlmCardHeader>
+            <span hlmSkeleton class="block h-5 w-20"></span>
+          </div>
+          <div hlmCardContent class="flex flex-col gap-3">
+            <span hlmSkeleton class="h-4 w-40"></span>
+            <span hlmSkeleton class="h-4 w-40"></span>
+            <span hlmSkeleton class="h-4 w-40"></span>
+          </div>
+        </div>
+      </div>
+    </div>
+  } @else if (loadError()) {
+    <p class="text-destructive text-sm">{{ loadError() }}</p>
+  }
+</div>

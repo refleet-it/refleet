@@ -1,0 +1,5 @@
+/dist
+/node_modules
+npm-debug.log
+# npm pack output — built by CI, never committed
+*.tgz

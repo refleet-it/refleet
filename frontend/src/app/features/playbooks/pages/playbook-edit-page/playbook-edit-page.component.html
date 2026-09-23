@@ -1,0 +1,331 @@
+<div class="flex flex-col gap-6">
+  <div>
+    <a routerLink="/dashboard/playbooks" class="text-muted-foreground text-sm hover:underline">
+      &larr; Back to playbooks
+    </a>
+  </div>
+
+  <div class="flex flex-wrap items-center justify-between gap-3">
+    <div>
+      <h1 class="flex flex-wrap items-center gap-2 text-2xl font-semibold">
+        @if (isNew()) {
+          New playbook
+        } @else {
+          {{ form().name || 'Playbook' }}
+        }
+        @if (isReadOnly()) {
+          <span hlmBadge variant="outline">built-in</span>
+        }
+      </h1>
+      <p class="text-muted-foreground text-sm">
+        @if (isReadOnly()) {
+          Ships with Refleet and cannot be edited here. Duplicate it to make an editable copy for
+          your organization.
+        } @else {
+          A rule is a standing instruction placed in front of the change or criteria; a task is the
+          change or criteria itself and may take
+          <code class="text-xs">{{ '{{' }}parameters{{ '}}' }}</code>.
+        }
+      </p>
+    </div>
+    @if (isReadOnly() && playbookId(); as id) {
+      <a hlmBtn routerLink="/dashboard/playbooks/new" [queryParams]="{ from: id }">Duplicate</a>
+    }
+  </div>
+
+  @if (isLoading()) {
+    <p class="text-muted-foreground text-sm">Loading…</p>
+  } @else if (loadError()) {
+    <p class="text-destructive text-sm">{{ loadError() }}</p>
+  } @else {
+    <form class="flex flex-col gap-6" (ngSubmit)="save()">
+      <div hlmCard>
+        <div hlmCardHeader>
+          <p hlmCardTitle class="text-xl">Definition</p>
+        </div>
+        <div hlmCardContent class="flex flex-col gap-4">
+          <div class="grid gap-4 sm:grid-cols-2">
+            <hlm-field [forceInvalid]="showFieldError('name')">
+              <label hlmLabel for="playbook-name">Name</label>
+              <input
+                hlmInput
+                id="playbook-name"
+                type="text"
+                class="w-full"
+                [ngModel]="form().name"
+                (ngModelChange)="updateForm('name', $event)"
+                [forceInvalid]="showFieldError('name')"
+                [disabled]="isReadOnly()"
+                name="name"
+              />
+              @if (showFieldError('name')) {
+                <hlm-field-error forceShow>{{ fieldErrors().name }}</hlm-field-error>
+              }
+            </hlm-field>
+
+            <hlm-field>
+              <label hlmLabel for="playbook-description">Description (optional)</label>
+              <input
+                hlmInput
+                id="playbook-description"
+                type="text"
+                class="w-full"
+                placeholder="One line shown next to the name when picking it"
+                [ngModel]="form().description"
+                (ngModelChange)="updateForm('description', $event)"
+                [disabled]="isReadOnly()"
+                name="description"
+              />
+            </hlm-field>
+          </div>
+
+          <div class="grid gap-4 sm:grid-cols-2">
+            <hlm-field>
+              <label hlmLabel for="playbook-kind">Kind</label>
+              <select
+                id="playbook-kind"
+                class="border-input bg-background h-9 w-full rounded-md border px-3 text-sm"
+                [ngModel]="form().kind"
+                (ngModelChange)="updateKind($event)"
+                [disabled]="isReadOnly()"
+                name="kind"
+              >
+                <option value="rule">Rule — standing instruction, any number per prompt</option>
+                <option value="task">Task — the change or criteria itself, one per prompt</option>
+              </select>
+            </hlm-field>
+
+            <hlm-field>
+              <label hlmLabel for="playbook-applies-to">Applies to</label>
+              <select
+                id="playbook-applies-to"
+                class="border-input bg-background h-9 w-full rounded-md border px-3 text-sm"
+                [ngModel]="form().appliesTo"
+                (ngModelChange)="updateForm('appliesTo', $event)"
+                [disabled]="isReadOnly()"
+                name="appliesTo"
+              >
+                @for (option of appliesToOptions; track option[0]) {
+                  <option [value]="option[0]">{{ option[1] }}</option>
+                }
+              </select>
+            </hlm-field>
+          </div>
+
+          @if ('rule' === form().kind) {
+            <div class="flex items-center gap-2">
+              <hlm-checkbox
+                [checked]="form().default"
+                (checkedChange)="updateForm('default', !form().default)"
+                [disabled]="isReadOnly()"
+                inputId="playbook-default"
+              />
+              <label hlmLabel for="playbook-default">
+                On by default — pre-selected whenever a new shift or qualification is defined
+              </label>
+            </div>
+          }
+
+          <hlm-field [forceInvalid]="showFieldError('body')">
+            <label hlmLabel for="playbook-body">Prompt text</label>
+            <textarea
+              hlmTextarea
+              id="playbook-body"
+              class="w-full font-mono text-xs"
+              rows="12"
+              [ngModel]="form().body"
+              (ngModelChange)="updateForm('body', $event)"
+              [forceInvalid]="showFieldError('body')"
+              [disabled]="isReadOnly()"
+              name="body"
+            ></textarea>
+            @if (showFieldError('body')) {
+              <hlm-field-error forceShow>{{ fieldErrors().body }}</hlm-field-error>
+            }
+            @if ('task' === form().kind && undeclaredPlaceholders().length > 0) {
+              <p class="text-muted-foreground text-xs">
+                Used in the text but not declared below, so they are sent as-is:
+                @for (name of undeclaredPlaceholders(); track name; let last = $last) {
+                  <code>{{ '{{' + name + '}}' }}</code>{{ last ? '' : ', ' }}
+                }
+              </p>
+            }
+          </hlm-field>
+        </div>
+      </div>
+
+      @if ('task' === form().kind) {
+        <div hlmCard>
+          <div hlmCardHeader>
+            <p hlmCardTitle class="text-xl">Parameters</p>
+            <p hlmCardDescription>
+              Each one becomes a <code class="text-xs">{{ '{{' }}name{{ '}}' }}</code> placeholder
+              in the text and a field to fill in when the task is picked.
+            </p>
+          </div>
+          <div hlmCardContent class="flex flex-col gap-3">
+            @for (parameter of form().parameters; track $index) {
+              <div class="grid items-end gap-3 sm:grid-cols-[1fr_1fr_1fr_auto_auto]">
+                <hlm-field>
+                  <label hlmLabel class="text-xs" [for]="'param-name-' + $index">Name</label>
+                  <input
+                    hlmInput
+                    [id]="'param-name-' + $index"
+                    type="text"
+                    class="w-full font-mono text-xs"
+                    placeholder="version"
+                    [ngModel]="parameter.name"
+                    (ngModelChange)="updateParameter($index, 'name', $event)"
+                    [disabled]="isReadOnly()"
+                    [name]="'param-name-' + $index"
+                  />
+                </hlm-field>
+                <hlm-field>
+                  <label hlmLabel class="text-xs" [for]="'param-label-' + $index">Label</label>
+                  <input
+                    hlmInput
+                    [id]="'param-label-' + $index"
+                    type="text"
+                    class="w-full"
+                    placeholder="Target version"
+                    [ngModel]="parameter.label"
+                    (ngModelChange)="updateParameter($index, 'label', $event)"
+                    [disabled]="isReadOnly()"
+                    [name]="'param-label-' + $index"
+                  />
+                </hlm-field>
+                <hlm-field>
+                  <label hlmLabel class="text-xs" [for]="'param-default-' + $index">Default</label>
+                  <input
+                    hlmInput
+                    [id]="'param-default-' + $index"
+                    type="text"
+                    class="w-full"
+                    [ngModel]="parameter.default ?? ''"
+                    (ngModelChange)="updateParameter($index, 'default', $event)"
+                    [disabled]="isReadOnly()"
+                    [name]="'param-default-' + $index"
+                  />
+                </hlm-field>
+                <div class="flex h-9 items-center gap-2">
+                  <hlm-checkbox
+                    [checked]="parameter.required"
+                    (checkedChange)="updateParameter($index, 'required', !parameter.required)"
+                    [disabled]="isReadOnly()"
+                    [inputId]="'param-required-' + $index"
+                  />
+                  <label hlmLabel class="text-xs" [for]="'param-required-' + $index"
+                    >Required</label
+                  >
+                </div>
+                <div class="flex h-9 items-center gap-1">
+                  <button
+                    hlmBtn
+                    type="button"
+                    size="sm"
+                    variant="ghost"
+                    [disabled]="isReadOnly() || !parameter.name"
+                    (click)="insertPlaceholder(parameter.name)"
+                    title="Append the placeholder to the prompt text"
+                  >
+                    Insert
+                  </button>
+                  @if (!isReadOnly()) {
+                    <button
+                      hlmBtn
+                      type="button"
+                      size="sm"
+                      variant="ghost"
+                      class="text-destructive"
+                      (click)="removeParameter($index)"
+                    >
+                      Remove
+                    </button>
+                  }
+                </div>
+              </div>
+            }
+            @if (showFieldError('parameters')) {
+              <p class="text-destructive text-sm">{{ fieldErrors().parameters }}</p>
+            }
+            @if (!isReadOnly()) {
+              <button
+                hlmBtn
+                type="button"
+                variant="outline"
+                size="sm"
+                class="self-start"
+                (click)="addParameter()"
+              >
+                Add parameter
+              </button>
+            }
+          </div>
+        </div>
+
+        <div hlmCard>
+          <div hlmCardHeader>
+            <p hlmCardTitle class="text-xl">Preferred agent</p>
+            <p hlmCardDescription>
+              Pre-selected when the task is picked; whoever defines the shift can still change it.
+            </p>
+          </div>
+          <div hlmCardContent class="grid gap-4 sm:grid-cols-2">
+            <hlm-field>
+              <label hlmLabel for="playbook-engine">Agent</label>
+              <select
+                id="playbook-engine"
+                class="border-input bg-background h-9 w-full rounded-md border px-3 text-sm"
+                [ngModel]="form().engine"
+                (ngModelChange)="updateEngine($event)"
+                [disabled]="isReadOnly()"
+                name="engine"
+              >
+                <option value="">No preference</option>
+                <option value="claude">Claude Code</option>
+                <option value="kiro">Kiro</option>
+              </select>
+            </hlm-field>
+            @if (modelsForEngine(form().engine).length > 0) {
+              <hlm-field>
+                <label hlmLabel for="playbook-model">Model</label>
+                <select
+                  id="playbook-model"
+                  class="border-input bg-background h-9 w-full rounded-md border px-3 text-sm"
+                  [ngModel]="form().model"
+                  (ngModelChange)="updateForm('model', $event)"
+                  [disabled]="isReadOnly()"
+                  name="model"
+                >
+                  <option value="">Auto (runner default)</option>
+                  @for (model of modelsForEngine(form().engine); track model) {
+                    <option [value]="model">{{ model }}</option>
+                  }
+                </select>
+              </hlm-field>
+            }
+          </div>
+        </div>
+      }
+
+      @if (saveError()) {
+        <p class="text-destructive text-sm">{{ saveError() }}</p>
+      }
+
+      @if (!isReadOnly()) {
+        <div class="flex gap-2">
+          <button hlmBtn type="submit" [disabled]="isSaving()">
+            @if (isSaving()) {
+              Saving…
+            } @else if (isNew()) {
+              Create Playbook
+            } @else {
+              Save Changes
+            }
+          </button>
+          <a hlmBtn variant="ghost" routerLink="/dashboard/playbooks">Cancel</a>
+        </div>
+      }
+    </form>
+  }
+</div>

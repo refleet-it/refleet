@@ -1,0 +1,13 @@
+/docs
+/docs/adr/0001-multiple-kernels
+/docs/adr/0002-playbooks
+/docs/api
+/docs/architecture
+/docs/contributing
+/docs/getting-started
+/docs/operations
+/docs/operations/deployment
+/docs/runner/how-it-works
+/docs/runner/installation
+/docs/self-hosting
+/docs/using-refleet

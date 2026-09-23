@@ -1,0 +1,33 @@
+## Only what every application needs — the bus skeleton and the failure/sync pseudo-transports.
+## Each context declares its own inbound/outbound transports and routing entries in
+## app/<context>/config/packages/messenger.yaml; the monolith pulls all of them in. See
+## docs/adr/0001-multiple-kernels.md. `command.bus`'s middleware list (including its
+## doctrine_transaction wrap) is declared per app, not here: unlike the keyed maps below
+## (transports, routing), `middleware` is a plain list, and Symfony replaces — rather than
+## merges — a list redeclared across imported files. A partial list here would just get
+## clobbered by whichever app imports last.
+framework:
+    messenger:
+        default_bus: command.bus
+        buses:
+            command.bus:
+                default_middleware: true
+            domain_event.bus:
+                default_middleware:
+                    enabled: true
+                    allow_no_handlers: true
+                middleware:
+                    - 'App\Shared\Infrastructure\Telemetry\TraceBoundedContextMiddleware'
+
+        failure_transport: failed
+
+        transports:
+            sync: 'sync://'
+            failed: 'doctrine://default?queue_name=failed'
+
+when@test:
+    framework:
+        messenger:
+            failure_transport: ~
+            transports:
+                failed: 'in-memory://'

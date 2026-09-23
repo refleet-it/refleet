@@ -1,0 +1,9 @@
+# Playbooks neither consume nor publish queued messages: everything they produce is text
+# the caller pastes into a Shift or Qualification, so there is no transport here.
+framework:
+    messenger:
+        buses:
+            command.bus:
+                middleware:
+                    - 'App\Shared\Infrastructure\Telemetry\TraceBoundedContextMiddleware'
+                    - doctrine_transaction: ['playbook']

@@ -1,0 +1,58 @@
+/* Fallback font with adjusted metrics — reduces CLS during font-display:swap */
+@font-face {
+  font-family: 'Open Sans Fallback';
+  src: local('Arial'), local('Helvetica Neue'), local('sans-serif');
+  ascent-override: 101.49%;
+  descent-override: 27.71%;
+  line-gap-override: 0%;
+  size-adjust: 105.03%;
+}
+
+/* Local Open Sans Font Definitions */
+@font-face {
+  font-family: 'Open Sans';
+  font-style: normal;
+  font-weight: 300;
+  font-display: swap;
+  src: url('./OpenSans-300.woff2') format('woff2');
+}
+
+@font-face {
+  font-family: 'Open Sans';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('./OpenSans-400.woff2') format('woff2');
+}
+
+@font-face {
+  font-family: 'Open Sans';
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url('./OpenSans-500.woff2') format('woff2');
+}
+
+@font-face {
+  font-family: 'Open Sans';
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url('./OpenSans-600.woff2') format('woff2');
+}
+
+@font-face {
+  font-family: 'Open Sans';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url('./OpenSans-700.woff2') format('woff2');
+}
+
+@font-face {
+  font-family: 'Open Sans';
+  font-style: normal;
+  font-weight: 800;
+  font-display: swap;
+  src: url('./OpenSans-800.woff2') format('woff2');
+}

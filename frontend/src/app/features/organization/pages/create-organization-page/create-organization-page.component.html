@@ -1,0 +1,45 @@
+<div class="flex min-h-screen items-center justify-center p-4">
+  <div hlmCard class="w-full max-w-md">
+    <div hlmCardHeader>
+      <p hlmCardTitle class="text-xl">Create your organization</p>
+      <p hlmCardDescription>
+        You'll be the owner and can invite teammates as employees afterwards.
+      </p>
+    </div>
+
+    <form hlmCardContent (ngSubmit)="onSubmit()">
+      <hlm-field>
+        <label hlmLabel for="organization-name">Organization name</label>
+        <input
+          hlmInput
+          id="organization-name"
+          type="text"
+          name="organizationName"
+          class="w-full"
+          placeholder="e.g. Acme Inc."
+          maxlength="100"
+          [ngModel]="name()"
+          (ngModelChange)="name.set($event)"
+          autocomplete="organization"
+        />
+      </hlm-field>
+
+      @if (errorMessage()) {
+        <p class="text-destructive mt-2 text-sm">{{ errorMessage() }}</p>
+      }
+
+      <button
+        hlmBtn
+        type="submit"
+        class="mt-4 w-full"
+        [disabled]="isSubmitting() || !name().trim()"
+      >
+        @if (isSubmitting()) {
+          Creating…
+        } @else {
+          Create organization
+        }
+      </button>
+    </form>
+  </div>
+</div>

@@ -1,0 +1,6 @@
+# Auto-discovered when PHPStan runs from this directory without --configuration.
+# Delegates to tools/phpstan so a bare `vendor/bin/phpstan` can't quietly run a weaker
+# ruleset than `make quality-check` does — most importantly the PHPat architecture tests,
+# which this file used to omit.
+includes:
+	- tools/phpstan/phpstan.dist.neon

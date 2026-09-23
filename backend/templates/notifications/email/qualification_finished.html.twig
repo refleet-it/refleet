@@ -1,0 +1,50 @@
+{% extends 'notifications/email/_base.html.twig' %}
+
+{% block title %}{{ title }} {{ outcome == 'completed' ? 'completed' : 'was cancelled' }} - Refleet{% endblock %}
+
+{% block preview %}Your qualification "{{ title }}" {{ outcome == 'completed' ? 'has finished running' : 'was cancelled' }}.{% endblock %}
+
+{% block hero %}
+<tr>
+    <td style="padding:0; border-radius:16px 16px 0 0; overflow:hidden;">
+        <div class="hero-img" style="line-height:0;">
+            <img src="https://images.unsplash.com/photo-1618044733300-9472054094ee?q=80&w=1600&auto=format&fit=crop" width="600" height="260" alt="" style="display:block; width:100%; height:260px; object-fit:cover; border:0;">
+        </div>
+    </td>
+</tr>
+{% endblock %}
+
+{% block heading %}
+<h1 style="margin:0; font:700 24px/1.25 -apple-system,BlinkMacSystemFont,Segoe UI,Roboto,Inter,Helvetica,Arial,sans-serif; color:#111827;" class="text">
+    {% if outcome == 'completed' %}
+        Qualification completed
+    {% else %}
+        Qualification cancelled
+    {% endif %}
+</h1>
+<p style="margin:12px 0 0 0; font:400 15px/1.6 -apple-system,BlinkMacSystemFont,Segoe UI,Roboto,Inter,Helvetica,Arial,sans-serif; color:#374151;" class="text">
+    {% if outcome == 'completed' %}
+        Your qualification "{{ title }}" has finished checking your fleet.
+    {% else %}
+        Your qualification "{{ title }}" was cancelled{{ cancelReason ? ': ' ~ cancelReason : '.' }}
+    {% endif %}
+</p>
+{% endblock %}
+
+{% block content %}
+<tr>
+    <td style="padding:20px 28px 8px 28px;">
+        <a href="{{ frontendUrl }}/dashboard/qualifications/{{ qualificationId }}" class="btn" style="display:inline-block; width:100%; text-align:center; background:#171717; color:#fff; text-decoration:none; font:700 16px/48px -apple-system,BlinkMacSystemFont,Segoe UI,Roboto,Inter,Helvetica,Arial,sans-serif; border-radius:8px;">
+            View qualification
+        </a>
+    </td>
+</tr>
+
+<tr>
+    <td style="padding:22px 28px 28px 28px;">
+        <p style="margin:0; font:400 14px/1.6 -apple-system,BlinkMacSystemFont,Segoe UI,Roboto,Inter,Helvetica,Arial,sans-serif; color:#6b7280;" class="muted">
+            This message was sent automatically because you created this qualification.
+        </p>
+    </td>
+</tr>
+{% endblock %}

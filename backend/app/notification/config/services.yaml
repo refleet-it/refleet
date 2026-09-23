@@ -1,0 +1,35 @@
+services:
+    _defaults:
+        autowire: true
+        autoconfigure: true
+
+    App\Notification\:
+        resource: '../src/'
+
+    App\Notification\Notification\Infrastructure\Persistence\:
+        resource: '../src/Notification/Infrastructure/Persistence/'
+        bind:
+            Doctrine\ORM\EntityManagerInterface: '@doctrine.orm.notification_entity_manager'
+
+    App\Notification\NotificationPreference\Infrastructure\Persistence\:
+        resource: '../src/NotificationPreference/Infrastructure/Persistence/'
+
+    App\Notification\Notification\Infrastructure\Service\EmailNotificationService:
+        arguments:
+            $fromEmail: '%env(MAILER_FROM_EMAIL)%'
+            $fromName: '%env(MAILER_FROM_NAME)%'
+            $replyToEmail: '%env(SUPPORT_EMAIL)%'
+
+    # Port owned by this context, consumed by others through Shared
+    App\Shared\Domain\Service\TemplateEmailSenderInterface:
+        alias: App\Notification\Notification\Infrastructure\Service\EmailNotificationService
+
+    # HTTP-backed adapter — see App\Shared\Infrastructure\Http\Internal\HttpApiKeyValidator.
+    App\Shared\Domain\Service\ApiKeyValidatorInterface:
+        alias: App\Shared\Infrastructure\Http\Internal\HttpApiKeyValidator
+
+    # Registers the shared domain-event dispatcher for this context's own connection only —
+    # see App\Shared\Application\Event\DomainEventDispatcher.
+    App\Shared\Application\Event\DomainEventDispatcher:
+        tags:
+            - { name: 'doctrine.event_listener', event: 'preFlush', connection: 'notification', priority: 500 }

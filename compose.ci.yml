@@ -1,0 +1,55 @@
+# Standalone CI compose file - does NOT merge with compose.yml
+# Used only in CI/CD pipeline
+
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+      target: ci
+    command: ["tail", "-f", "/dev/null"]
+    environment:
+      - TZ=Europe/Warsaw
+      - APP_ENV=test
+      - APP_DEBUG=1
+      # This single container both signs and verifies (it runs the whole suite, identity
+      # included). The pair is generated per job by ci/scripts/jwt-keypair.sh, never committed.
+      - JWT_PRIVATE_KEY=${JWT_PRIVATE_KEY:?generate with ci/scripts/jwt-keypair.sh}
+      - JWT_PUBLIC_KEY=${JWT_PUBLIC_KEY:?generate with ci/scripts/jwt-keypair.sh}
+      - DATABASE_URL=postgresql://refleet:password@database:5432/refleet_db?serverVersion=16&charset=utf8
+      - MESSENGER_TRANSPORT_DSN=doctrine://default
+      - CORS_ALLOW_ORIGIN=*
+    healthcheck:
+      test: ["CMD-SHELL", "true"]
+      interval: 5s
+      timeout: 1s
+      retries: 1
+      start_period: 0s
+    networks:
+      - network-app
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile.ssr
+    command: ["tail", "-f", "/dev/null"]
+    networks:
+      - network-app
+
+  database:
+    image: postgres:16
+    environment:
+      - TZ=Europe/Warsaw
+      - POSTGRES_DB=refleet_db
+      - POSTGRES_USER=refleet
+      - POSTGRES_PASSWORD=password
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U refleet -d refleet_db"]
+      interval: 3s
+      timeout: 3s
+      retries: 5
+    networks:
+      - network-app
+
+networks:
+  network-app:

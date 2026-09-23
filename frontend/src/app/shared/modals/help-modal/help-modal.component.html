@@ -1,0 +1,113 @@
+<div class="help-modal">
+  <hlm-dialog-header>
+    <h3 hlmDialogTitle>Help</h3>
+  </hlm-dialog-header>
+
+  <div class="help-header">
+    <p class="help-description">
+      How Refleet takes a change from an idea to merge requests across your GitLab fleet.
+    </p>
+  </div>
+
+  <div class="help-content">
+    <div hlmAccordion type="multiple">
+      <div hlmAccordionItem>
+        <hlm-accordion-trigger>Connecting GitLab</hlm-accordion-trigger>
+        <hlm-accordion-content>
+          <p>
+            Under Settings, connect a group by providing its group path, an access token, and (if
+            self-managed) your GitLab instance URL. Refleet syncs the group's projects into your
+            fleet, and you can trigger a re-sync at any time with "Sync now" to pick up new or
+            removed projects.
+          </p>
+        </hlm-accordion-content>
+      </div>
+
+      <div hlmAccordionItem>
+        <hlm-accordion-trigger>Qualifications and Shifts</hlm-accordion-trigger>
+        <hlm-accordion-content>
+          <p>
+            Deciding <em>where</em> a change belongs and <em>making</em> it are separate steps. A
+            <strong>qualification</strong> asks which projects a change applies to and answers it
+            per project; a <strong>shift</strong> applies the change and opens the merge requests.
+            Keeping them apart lets you check the verdict before anything writes to a repository,
+            and reuse one qualification for any number of shifts.
+          </p>
+        </hlm-accordion-content>
+      </div>
+
+      <div hlmAccordionItem>
+        <hlm-accordion-trigger>Running a qualification</hlm-accordion-trigger>
+        <hlm-accordion-content>
+          <p>
+            Qualify projects with a static regex match against a file (e.g. a dependency version in
+            <code>composer.json</code>), or with an AI prompt when the condition can't be expressed
+            as a pattern. A qualification goes <strong>Draft</strong> → <strong>Running</strong> →
+            <strong>Completed</strong>, and each project ends up Qualified or Not Qualified. You can
+            override any verdict by hand.
+          </p>
+        </hlm-accordion-content>
+      </div>
+
+      <div hlmAccordionItem>
+        <hlm-accordion-trigger>Running a shift</hlm-accordion-trigger>
+        <hlm-accordion-content>
+          <p>
+            A shift takes its targets from a qualification's qualified projects, from an explicit
+            selection, or from projects you pick directly without qualifying at all. Define the
+            change — a file, pattern and replacement, or a prompt — and the shift goes
+            <strong>Draft</strong> → <strong>Applying Change</strong> → <strong>Completed</strong>.
+            Refleet keeps watching each merge request after opening it, so a target is only done
+            once its merge request is merged or closed.
+          </p>
+        </hlm-accordion-content>
+      </div>
+
+      <div hlmAccordionItem>
+        <hlm-accordion-trigger>Runner Fleet</hlm-accordion-trigger>
+        <hlm-accordion-content>
+          <p>
+            Runners are the workers that qualify and apply changes and open merge requests on your
+            behalf. Each runner reports its status — working, idle, or offline — via a heartbeat,
+            and you can see the whole runner fleet's health on the Runners page and the dashboard's
+            runner status widget. Nothing progresses until at least one runner is connected.
+          </p>
+        </hlm-accordion-content>
+      </div>
+
+      <div hlmAccordionItem>
+        <hlm-accordion-trigger>Team &amp; Roles</hlm-accordion-trigger>
+        <hlm-accordion-content>
+          <p>
+            Invite teammates by email from the Team page. Every account is either the organization's
+            owner or a regular member — the owner can invite and remove teammates, and can transfer
+            ownership to another member at any time.
+          </p>
+        </hlm-accordion-content>
+      </div>
+
+      <div hlmAccordionItem>
+        <hlm-accordion-trigger>Support</hlm-accordion-trigger>
+        <hlm-accordion-content>
+          <p>
+            If you need assistance or have questions about the platform, contact our support team.
+            We respond to all inquiries within 24 hours.
+          </p>
+        </hlm-accordion-content>
+      </div>
+    </div>
+  </div>
+
+  <div class="help-footer">
+    <p class="contact-info">
+      Full documentation:
+      <a routerLink="/docs/using-refleet" class="contact-link" (click)="close()">Using Refleet</a>
+    </p>
+    @if ('' !== supportEmail()) {
+      <p class="contact-info">
+        Need more help? Contact us at:
+        <a href="mailto:{{ supportEmail() }}" class="contact-link">{{ supportEmail() }}</a>
+      </p>
+    }
+  </div>
+</div>

@@ -1,0 +1,27 @@
+<div
+  class="min-h-screen flex items-center justify-center bg-gray-50 px-4"
+  data-testid="server-error-page"
+>
+  <div class="text-center max-w-md">
+    <h1 class="text-8xl font-bold mb-4" style="color: var(--primary)">500</h1>
+    <h2 class="text-2xl font-semibold text-gray-900 mb-4">Server Error</h2>
+    <p class="text-gray-600 mb-8">
+      Sorry, an unexpected server error occurred. Our team has been notified of the issue.
+    </p>
+
+    <div class="flex flex-col sm:flex-row gap-3 justify-center flex-wrap">
+      <button hlmBtn (click)="refreshPage()">
+        <ng-icon name="lucideRefreshCw" />
+        Refresh page
+      </button>
+      <button hlmBtn variant="secondary" (click)="goHome()">
+        <ng-icon name="lucideHouse" />
+        Home page
+      </button>
+      <button hlmBtn variant="ghost" (click)="goBack()">
+        <ng-icon name="lucideArrowLeft" />
+        Go back
+      </button>
+    </div>
+  </div>
+</div>

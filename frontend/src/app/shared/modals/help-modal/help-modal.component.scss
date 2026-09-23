@@ -1,0 +1,47 @@
+.help-modal {
+  padding: 2rem;
+  max-width: 800px;
+  min-height: 400px;
+
+  .help-header {
+    margin-bottom: 2rem;
+
+    .help-description {
+      font-size: 1rem;
+      color: var(--muted-foreground);
+      margin: 0;
+      line-height: 1.5;
+    }
+  }
+
+  .help-content {
+    margin-bottom: 2rem;
+  }
+
+  .help-footer {
+    padding-top: 2rem;
+    border-top: 1px solid var(--border);
+
+    .contact-info {
+      font-size: 0.95rem;
+      color: var(--muted-foreground);
+      margin: 0;
+
+      .contact-link {
+        color: var(--primary);
+        text-decoration: none;
+        font-weight: 500;
+
+        &:hover {
+          text-decoration: underline;
+        }
+      }
+    }
+  }
+}
+
+@media (max-width: 768px) {
+  .help-modal {
+    padding: 1.5rem;
+  }
+}

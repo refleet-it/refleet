@@ -1,0 +1,40 @@
+name: Bug report
+description: Something behaves differently than it should
+labels: ['bug']
+body:
+    -   type: textarea
+        id: what-happened
+        attributes:
+            label: What happened
+            description: What you did, what you expected, and what you got instead.
+        validations:
+            required: true
+    -   type: textarea
+        id: reproduce
+        attributes:
+            label: How to reproduce
+            description: The shortest sequence that shows it.
+        validations:
+            required: true
+    -   type: dropdown
+        id: how-run
+        attributes:
+            label: How are you running Refleet?
+            options:
+                - Self-hosted (compose.selfhost.yml)
+                - Self-hosted (own setup)
+                - The hosted instance at refleet.it
+                - Local development checkout
+        validations:
+            required: true
+    -   type: input
+        id: version
+        attributes:
+            label: Version
+            description: Image tag, release, or commit SHA. For a runner issue, `refleet --version`.
+    -   type: textarea
+        id: logs
+        attributes:
+            label: Relevant logs
+            description: Redact tokens before pasting. This is a public issue tracker.
+            render: shell

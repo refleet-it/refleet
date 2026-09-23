@@ -1,0 +1,247 @@
+<div class="flex flex-col gap-6">
+  <div>
+    <h1 class="text-2xl font-semibold">Settings</h1>
+    <p class="text-muted-foreground text-sm">
+      Manage your organization details and its GitLab connection.
+    </p>
+  </div>
+
+  <div hlmCard>
+    <div hlmCardHeader>
+      <p hlmCardTitle class="text-xl">General</p>
+      <p hlmCardDescription>Basic details for your organization.</p>
+    </div>
+    <div hlmCardContent>
+      @if (overview(); as data) {
+        <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <div>
+            <p class="text-muted-foreground text-xs">Name</p>
+            <p class="font-medium">{{ data.organization?.name }}</p>
+          </div>
+          <div>
+            <p class="text-muted-foreground text-xs">Your role</p>
+            <p class="font-medium capitalize">{{ data.role }}</p>
+          </div>
+        </div>
+      } @else if (isLoadingOverview()) {
+        <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          @for (field of overviewSkeletonFields; track field) {
+            <div>
+              <span hlmSkeleton class="block h-3 w-16"></span>
+              <span hlmSkeleton class="mt-2 block h-5 w-32"></span>
+            </div>
+          }
+        </div>
+      } @else {
+        <p class="text-muted-foreground text-sm">No organization found.</p>
+      }
+    </div>
+  </div>
+
+  <div hlmCard>
+    <div hlmCardHeader>
+      <p hlmCardTitle class="text-xl">GitLab connection</p>
+      <p hlmCardDescription>Connect a GitLab group so its projects sync into your fleet.</p>
+    </div>
+    <div hlmCardContent>
+      @if (isLoadingConnection()) {
+        <div class="flex flex-col gap-4">
+          <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            @for (field of connectionSkeletonFields; track field) {
+              <div>
+                <span hlmSkeleton class="block h-3 w-20"></span>
+                <span hlmSkeleton class="mt-2 block h-5 w-36"></span>
+              </div>
+            }
+          </div>
+          <div class="flex gap-2">
+            <span hlmSkeleton class="h-9 w-24"></span>
+            <span hlmSkeleton class="h-9 w-28"></span>
+          </div>
+        </div>
+      }
+      @if (!isLoadingConnection() && connection(); as active) {
+        @if (active.connected) {
+          <div class="flex flex-col gap-4">
+            <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <div>
+                <p class="text-muted-foreground text-xs">Group</p>
+                <p class="font-medium">{{ active.groupName }}</p>
+                <p class="text-muted-foreground text-sm">{{ active.groupPath }}</p>
+              </div>
+              <div>
+                <p class="text-muted-foreground text-xs">GitLab instance</p>
+                <p class="font-medium">{{ active.baseUrl }}</p>
+                <p class="text-muted-foreground text-sm">
+                  @if (active.authMethod === 'oauth') {
+                    Authorized via GitLab (short-lived tokens)
+                  } @else {
+                    Access token
+                  }
+                </p>
+              </div>
+              <div>
+                <p class="text-muted-foreground text-xs">Last sync</p>
+                <div class="flex items-center gap-2">
+                  @if (active.lastSyncStatus) {
+                    <app-status-badge [variant]="statusBadgeVariant(active.lastSyncStatus)">
+                      {{ statusLabels[active.lastSyncStatus] }}
+                    </app-status-badge>
+                  }
+                  <span class="text-sm">{{ formatDate(active.lastSyncedAt) }}</span>
+                </div>
+                @if (active.lastSyncError) {
+                  <p class="text-destructive mt-1 text-sm">{{ active.lastSyncError }}</p>
+                }
+              </div>
+              <div>
+                <p class="text-muted-foreground text-xs">Projects synced</p>
+                <p class="font-medium">{{ active.lastSyncProjectCount ?? '—' }}</p>
+              </div>
+            </div>
+
+            <div class="flex gap-2">
+              <button hlmBtn type="button" [disabled]="isSyncing()" (click)="syncNow()">
+                @if (isSyncing()) {
+                  Syncing…
+                } @else {
+                  Sync now
+                }
+              </button>
+              <button
+                hlmBtn
+                type="button"
+                variant="outline"
+                [disabled]="isDisconnecting()"
+                (click)="disconnectGitLab()"
+              >
+                @if (isDisconnecting()) {
+                  Disconnecting…
+                } @else {
+                  Disconnect
+                }
+              </button>
+            </div>
+          </div>
+        } @else {
+          @if (active.oauthAvailable && !useAccessToken()) {
+            <form class="flex flex-col gap-4" (ngSubmit)="connectWithGitLab()">
+              <p class="text-muted-foreground text-sm">
+                Refleet asks gitlab.com for permission to work in one group on your behalf. No token
+                to copy: access is short-lived, refreshed automatically and revocable from your
+                GitLab profile at any time.
+              </p>
+
+              <hlm-field class="sm:max-w-sm">
+                <label hlmLabel for="gitlab-oauth-group-path">GitLab group path</label>
+                <input
+                  hlmInput
+                  id="gitlab-oauth-group-path"
+                  class="w-full"
+                  placeholder="acme-corp/backend-team"
+                  [ngModel]="connectForm().groupPath"
+                  (ngModelChange)="updateConnectForm('groupPath', $event)"
+                  name="groupPath"
+                />
+              </hlm-field>
+
+              @if (connectError()) {
+                <p class="text-destructive text-sm">{{ connectError() }}</p>
+              }
+
+              <div class="flex flex-wrap items-center gap-3">
+                <button hlmBtn type="submit" [disabled]="isStartingOAuth()">
+                  @if (isStartingOAuth()) {
+                    Redirecting to GitLab…
+                  } @else {
+                    Continue with GitLab
+                  }
+                </button>
+                <button
+                  type="button"
+                  class="text-muted-foreground text-sm underline-offset-4 hover:underline"
+                  (click)="toggleAccessTokenForm()"
+                >
+                  Self-hosted GitLab? Use an access token instead
+                </button>
+              </div>
+            </form>
+          } @else {
+            <form class="flex flex-col gap-4" (ngSubmit)="connectGitLab()">
+              @if (active.oauthAvailable) {
+                <p class="text-muted-foreground text-sm">
+                  For a self-hosted instance, create a <strong>group access token</strong> with the
+                  Developer role and the <code>api</code> scope. It is stored encrypted and handed
+                  only to your runners.
+                </p>
+              }
+
+              <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                <hlm-field>
+                  <label hlmLabel for="gitlab-group-path">GitLab group path</label>
+                  <input
+                    hlmInput
+                    id="gitlab-group-path"
+                    class="w-full"
+                    placeholder="acme-corp/backend-team"
+                    [ngModel]="connectForm().groupPath"
+                    (ngModelChange)="updateConnectForm('groupPath', $event)"
+                    name="groupPath"
+                  />
+                </hlm-field>
+
+                <hlm-field>
+                  <label hlmLabel for="gitlab-access-token">Access token</label>
+                  <app-password-input
+                    inputId="gitlab-access-token"
+                    placeholder="glpat-••••••••••••••••••••"
+                    autocomplete="off"
+                    [ngModel]="connectForm().accessToken"
+                    (ngModelChange)="updateConnectForm('accessToken', $event)"
+                    name="accessToken"
+                  />
+                </hlm-field>
+
+                <hlm-field>
+                  <label hlmLabel for="gitlab-base-url">GitLab instance URL</label>
+                  <input
+                    hlmInput
+                    id="gitlab-base-url"
+                    class="w-full"
+                    placeholder="https://gitlab.com"
+                    [ngModel]="connectForm().baseUrl"
+                    (ngModelChange)="updateConnectForm('baseUrl', $event)"
+                    name="baseUrl"
+                  />
+                </hlm-field>
+              </div>
+
+              @if (connectError()) {
+                <p class="text-destructive text-sm">{{ connectError() }}</p>
+              }
+
+              <div class="flex flex-wrap items-center gap-3">
+                <button hlmBtn type="submit" [disabled]="isConnecting()">
+                  @if (isConnecting()) {
+                    Connecting…
+                  } @else {
+                    Connect GitLab
+                  }
+                </button>
+                @if (active.oauthAvailable) {
+                  <button
+                    type="button"
+                    class="text-muted-foreground text-sm underline-offset-4 hover:underline"
+                    (click)="toggleAccessTokenForm()"
+                  >
+                    Back to signing in with GitLab
+                  </button>
+                }
+              </div>
+            </form>
+          }
+        }
+      }
+    </div>
+  </div>
+</div>

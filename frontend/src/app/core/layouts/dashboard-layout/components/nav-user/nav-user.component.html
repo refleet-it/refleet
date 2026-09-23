@@ -1,0 +1,55 @@
+<ul hlmSidebarMenu>
+  <li hlmSidebarMenuItem>
+    <button
+      #menuButton
+      type="button"
+      hlmSidebarMenuButton
+      size="lg"
+      [hlmDropdownMenuTrigger]="userMenu"
+      [side]="menuSide()"
+      align="end"
+      data-testid="user-menu-button"
+    >
+      <hlm-avatar class="rounded-lg">
+        <span hlmAvatarFallback class="rounded-lg">{{ userInitial() }}</span>
+      </hlm-avatar>
+      <div class="grid flex-1 text-left text-sm leading-tight">
+        <span class="truncate font-medium">{{ userEmail() }}</span>
+        <span class="truncate text-xs capitalize">{{ userRole() }}</span>
+      </div>
+      <ng-icon name="lucideChevronsUpDown" class="ml-auto text-base" />
+    </button>
+  </li>
+</ul>
+
+<ng-template #userMenu>
+  <hlm-dropdown-menu class="min-w-56 rounded-lg">
+    <hlm-dropdown-menu-label>
+      <div class="flex items-center gap-2 px-1 py-1.5 text-left text-sm">
+        <hlm-avatar class="rounded-lg">
+          <span hlmAvatarFallback class="rounded-lg">{{ userInitial() }}</span>
+        </hlm-avatar>
+        <div class="grid flex-1 text-left text-sm leading-tight">
+          <span class="truncate font-medium">{{ userEmail() }}</span>
+          <span class="truncate text-xs capitalize">{{ userRole() }}</span>
+        </div>
+      </div>
+    </hlm-dropdown-menu-label>
+    <hlm-dropdown-menu-separator />
+    <hlm-dropdown-menu-group>
+      <button hlmDropdownMenuItem id="settings-menu-item" (triggered)="navigateToSettings()">
+        <ng-icon name="lucideSettings" />
+        Settings
+      </button>
+      <button hlmDropdownMenuItem id="help-menu-item" (triggered)="navigateToHelp()">
+        <ng-icon name="lucideCircleHelp" />
+        Help
+      </button>
+    </hlm-dropdown-menu-group>
+    <hlm-dropdown-menu-separator />
+    <button hlmDropdownMenuItem id="logout-menu-item" variant="destructive" (triggered)="logout()">
+      <ng-icon name="lucideLogOut" />
+      Log out
+    </button>
+  </hlm-dropdown-menu>
+</ng-template>

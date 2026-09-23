@@ -1,0 +1,30 @@
+framework:
+    messenger:
+        buses:
+            command.bus:
+                middleware:
+                    - 'App\Shared\Infrastructure\Telemetry\TraceBoundedContextMiddleware'
+                    - doctrine_transaction: ['runner']
+
+        transports:
+            to_runner:
+                dsn: '%env(MESSENGER_TRANSPORT_DSN)%?queue_name=to_runner'
+                serializer: 'App\Runner\Runner\Infrastructure\Bus\RunnerMessageSerializer'
+
+            # Producer-only — see App\Shared\Infrastructure\Messenger\OutboundMessageSerializer.
+            to_identity:
+                dsn: '%env(MESSENGER_TRANSPORT_DSN)%?queue_name=to_identity'
+                serializer: 'App\Shared\Infrastructure\Messenger\OutboundMessageSerializer'
+
+            to_qualification:
+                dsn: '%env(MESSENGER_TRANSPORT_DSN)%?queue_name=to_qualification'
+                serializer: 'App\Shared\Infrastructure\Messenger\OutboundMessageSerializer'
+
+            to_shift:
+                dsn: '%env(MESSENGER_TRANSPORT_DSN)%?queue_name=to_shift'
+                serializer: 'App\Shared\Infrastructure\Messenger\OutboundMessageSerializer'
+
+        routing:
+            'App\Runner\Runner\Infrastructure\Bus\RunnerArchived\RunnerArchivedMessage': to_identity
+            'App\Runner\Runner\Infrastructure\Bus\QualificationTargetResultReported\QualificationTargetResultReportedMessage': to_qualification
+            'App\Runner\Runner\Infrastructure\Bus\ShiftTargetResultReported\ShiftTargetResultReportedMessage': to_shift

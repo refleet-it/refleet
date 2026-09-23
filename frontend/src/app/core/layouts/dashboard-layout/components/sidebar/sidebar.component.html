@@ -1,0 +1,32 @@
+<hlm-sidebar variant="inset">
+  <hlm-sidebar-header class="select-none">
+    <ul hlmSidebarMenu>
+      <li hlmSidebarMenuItem>
+        <a
+          hlmSidebarMenuButton
+          size="lg"
+          href="/"
+          draggable="false"
+          class="hover:bg-transparent active:bg-transparent"
+        >
+          <img
+            src="/logo.svg"
+            alt="Refleet"
+            class="h-8 w-auto"
+            width="700"
+            height="242"
+            draggable="false"
+          />
+        </a>
+      </li>
+    </ul>
+  </hlm-sidebar-header>
+
+  <hlm-sidebar-content class="select-none">
+    <app-nav-main [items]="menuItems()" />
+  </hlm-sidebar-content>
+
+  <hlm-sidebar-footer class="select-none">
+    <app-nav-user />
+  </hlm-sidebar-footer>
+</hlm-sidebar>

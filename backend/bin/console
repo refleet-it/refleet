@@ -1,0 +1,29 @@
+#!/usr/bin/env php
+<?php
+
+use App\Kernel;
+use Symfony\Bundle\FrameworkBundle\Console\Application;
+use Symfony\Component\Console\Input\InputInterface;
+use Symfony\Component\Console\Input\InputOption;
+
+if (!is_dir(dirname(__DIR__) . '/vendor')) {
+    throw new LogicException('Dependencies are missing. Try running "composer install".');
+}
+
+if (!is_file(dirname(__DIR__) . '/vendor/autoload_runtime.php')) {
+    throw new LogicException('Symfony Runtime is missing. Try running "composer require symfony/runtime".');
+}
+
+require_once dirname(__DIR__) . '/vendor/autoload_runtime.php';
+
+return function (InputInterface $input, array $context) {
+    $id = $input->getParameterOption(['--id', '-i'], $context['APP_ID'] ?? null);
+    $kernel = new Kernel($context['APP_ENV'], (bool) $context['APP_DEBUG'], \is_string($id) ? $id : null);
+
+    $application = new Application($kernel);
+    $application->getDefinition()->addOption(
+        new InputOption('--id', '-i', InputOption::VALUE_REQUIRED, 'The application to run the command against')
+    );
+
+    return $application;
+};

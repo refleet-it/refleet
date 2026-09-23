@@ -1,0 +1,131 @@
+<div class="flex flex-col gap-6">
+  @if (archived) {
+    <div>
+      <a routerLink="/dashboard/runners" class="text-muted-foreground text-sm hover:underline"
+        >&larr; Back to runners</a
+      >
+    </div>
+  }
+
+  <div class="flex flex-wrap items-center justify-between gap-3">
+    <div>
+      <h1 class="text-2xl font-semibold">{{ archived ? 'Archived runners' : 'Runners' }}</h1>
+      <p class="text-muted-foreground text-sm">
+        {{
+          archived
+            ? 'Retired runners. Their history is kept, their API keys are revoked.'
+            : 'The runner fleet registered to your organization.'
+        }}
+      </p>
+    </div>
+    @if (!archived) {
+      <div class="flex items-center gap-2">
+        <a hlmBtn variant="outline" routerLink="/dashboard/runners/archive">Archive</a>
+        <a hlmBtn routerLink="/docs/runner/installation">Add a runner</a>
+      </div>
+    }
+  </div>
+
+  <div hlmCard>
+    <div hlmCardHeader>
+      <p hlmCardDescription>Open a runner by its name to see the jobs it has claimed.</p>
+    </div>
+    <div hlmCardContent>
+      @if (list.isInitialLoading()) {
+        <div class="overflow-x-auto">
+          <table class="w-full text-sm">
+            <thead>
+              <tr class="border-border border-b text-left">
+                <th class="py-2 pr-4 font-medium">Name</th>
+                <th class="py-2 pr-4 font-medium">Status</th>
+                <th class="py-2 pr-4 font-medium">Version</th>
+                <th class="py-2 pr-4 font-medium">Last seen</th>
+                <th class="py-2 font-medium">{{ archived ? 'Archived' : 'Registered' }}</th>
+              </tr>
+            </thead>
+            <tbody>
+              <app-table-skeleton-rows [columns]="skeletonColumns" />
+            </tbody>
+          </table>
+        </div>
+      } @else if (list.error()) {
+        <app-list-error message="Could not load runners." (retry)="list.refresh()" />
+      } @else if (0 === list.items().length) {
+        @if (archived) {
+          <p class="text-muted-foreground text-sm">No runners have been archived yet.</p>
+        } @else {
+          <p class="text-muted-foreground text-sm">
+            No runners registered yet. Nothing qualifies or applies a change until at least one is
+            running. A runner registers itself once you start it with an API key, so there is
+            nothing to create here —
+            <a class="text-primary underline" routerLink="/docs/runner/installation"
+              >see how to install one</a
+            >.
+          </p>
+        }
+      } @else {
+        <div class="overflow-x-auto">
+          <table class="w-full text-sm">
+            <thead>
+              <tr class="border-border border-b text-left">
+                <th class="py-2 pr-4 font-medium">Name</th>
+                <th class="py-2 pr-4 font-medium">Status</th>
+                <th class="py-2 pr-4 font-medium">Version</th>
+                <th class="py-2 pr-4 font-medium">Last seen</th>
+                <th class="py-2 font-medium">{{ archived ? 'Archived' : 'Registered' }}</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (runner of list.items(); track runner.id) {
+                <tr class="border-border hover:bg-muted/50 border-b last:border-0">
+                  <td class="py-2 pr-4 font-medium">
+                    <a [routerLink]="['/dashboard/runners', runner.id]" class="hover:underline">{{
+                      runner.name
+                    }}</a>
+                  </td>
+                  <td class="py-2 pr-4">
+                    <app-status-badge
+                      [variant]="statusBadgeVariant(runner.status)"
+                      [working]="isAgentWorking(runner.status)"
+                    >
+                      {{ statusLabels[runner.status] }}
+                    </app-status-badge>
+                  </td>
+                  <td class="py-2 pr-4">
+                    @if (runner.version) {
+                      <span class="flex flex-wrap items-center gap-1">
+                        <span class="text-muted-foreground">{{ runner.version }}</span>
+                        @if (runner.updateAvailable && !archived) {
+                          <span
+                            hlmBadge
+                            variant="secondary"
+                            [title]="'v' + runner.latestVersion + ' is published'"
+                            >Update</span
+                          >
+                        }
+                      </span>
+                    } @else {
+                      <span class="text-muted-foreground">—</span>
+                    }
+                  </td>
+                  <td class="text-muted-foreground py-2 pr-4">
+                    {{ formatDate(runner.lastSeenAt) }}
+                  </td>
+                  <td class="text-muted-foreground py-2">
+                    {{ formatDate(archived ? runner.archivedAt : runner.createdAt) }}
+                  </td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+        <hlm-numbered-pagination
+          class="mt-4"
+          [(currentPage)]="list.page"
+          [(itemsPerPage)]="list.pageSize"
+          [totalItems]="list.pagination()?.total ?? 0"
+        />
+      }
+    </div>
+  </div>
+</div>

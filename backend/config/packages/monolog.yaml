@@ -1,0 +1,65 @@
+monolog:
+    channels: ['scheduler', 'deprecation', 'frontend']
+
+when@dev:
+    monolog:
+        handlers:
+            # A plain stream here grew to 2.2 GB a day and never stopped; rotation caps that at
+            # three days. `event` is dropped because listener-notification lines were 46% of the
+            # file on their own, and the console handler below already treats them as noise.
+            main:
+                type: rotating_file
+                path: '%kernel.logs_dir%/dev.log'
+                max_files: 3
+                level: debug
+                channels: ['!event']
+            console:
+                type: console
+                process_psr_3_messages: false
+                channels: ['!event', '!doctrine', '!messenger']
+            scheduler:
+                type: stream
+                path: '%kernel.logs_dir%/scheduler.log'
+                level: info
+                channels: ['scheduler']
+
+when@test:
+    monolog:
+        handlers:
+            main:
+                type: fingers_crossed
+                action_level: error
+                handler: nested
+            nested:
+                type: stream
+                path: "%kernel.logs_dir%/%kernel.environment%.log"
+                level: debug
+            scheduler:
+                type: stream
+                path: '%kernel.logs_dir%/scheduler.log'
+                level: info
+                channels: ['scheduler']
+
+when@prod:
+    monolog:
+        handlers:
+            # Main handler - send all logs to stdout for Docker/Alloy collection
+            main:
+                type: stream
+                path: php://stdout
+                level: info
+                formatter: monolog.formatter.unified_json
+                channels: ['!event', '!doctrine', '!deprecation']
+            # Deprecations handler - only warnings and above
+            deprecation:
+                type: stream
+                path: php://stderr
+                level: warning
+                channels: ['deprecation']
+            # Scheduler logs
+            scheduler:
+                type: stream
+                path: php://stdout
+                level: info
+                formatter: monolog.formatter.unified_json
+                channels: ['scheduler']

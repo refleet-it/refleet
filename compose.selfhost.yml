@@ -1,0 +1,177 @@
+# Self-hosted Refleet: everything needed to run your own instance, and nothing else.
+#
+#   cp .env.selfhost.dist .env && make selfhost
+#
+# This file stands alone — do not combine it with compose.yml, which describes the
+# development stack and the production topology (one container per bounded context, see
+# docs/adr/0001-multiple-kernels.md). Here a single backend boots with APP_ID=monolith and
+# serves every context from one process: the cross-context ports resolve in-process rather
+# than over HTTP, so there is no gateway to route and no INTERNAL_SERVICE_TOKEN to share.
+#
+# Images come from the project's registry. To run your own build instead, add
+# `build: {context: ., dockerfile: backend/Dockerfile}` to the backend services and
+# `build: {context: ./frontend, dockerfile: Dockerfile.ssr}` to the frontend.
+
+x-backend-image: &backend-image
+    image: ghcr.io/refleet-it/refleet-backend:${IMAGE_TAG:-latest}
+    restart: unless-stopped
+    networks:
+        - refleet
+    environment: &backend-env
+        TZ: ${TZ:-UTC}
+        APP_ENV: prod
+        APP_DEBUG: "false"
+        APP_ID: monolith
+        APP_SECRET: ${APP_SECRET:?run `make selfhost` or see .env.selfhost.dist}
+        JWT_PRIVATE_KEY: ${JWT_PRIVATE_KEY:?run `make selfhost` or see .env.selfhost.dist}
+        JWT_PUBLIC_KEY: ${JWT_PUBLIC_KEY:?run `make selfhost` or see .env.selfhost.dist}
+        GITLAB_TOKEN_ENCRYPTION_KEY: ${GITLAB_TOKEN_ENCRYPTION_KEY:?run `make selfhost` or see .env.selfhost.dist}
+        DATABASE_URL: postgresql://${DB_USER:-refleet}:${DB_USER_PASSWORD:?run `make selfhost` or see .env.selfhost.dist}@database:5432/${DB_NAME:-refleet}?serverVersion=16&charset=utf8
+        MESSENGER_TRANSPORT_DSN: doctrine://default
+        # One name serves the application and the API alike — see deploy/selfhost/Caddyfile.
+        APP_URL: https://${APP_DOMAIN:?set APP_DOMAIN to the hostname this instance answers on}
+        FRONTEND_URL: https://${APP_DOMAIN}
+        API_BASE_URL: https://${APP_DOMAIN}
+        CORS_ALLOW_ORIGIN: https://${APP_DOMAIN}
+        TRUSTED_HOSTS: ^(${APP_DOMAIN}|backend|localhost)$$
+        TRUSTED_PROXIES: 127.0.0.1,172.16.0.0/12
+        MAILER_DSN: ${MAILER_DSN:?run `make selfhost` or see .env.selfhost.dist}
+        MAILER_FROM_EMAIL: ${MAILER_FROM_EMAIL:?run `make selfhost` or see .env.selfhost.dist}
+        MAILER_FROM_NAME: ${MAILER_FROM_NAME:-Refleet}
+        SUPPORT_EMAIL: ${SUPPORT_EMAIL:-}
+        TERMS_URL: ${TERMS_URL:-}
+        # Leave empty to keep the instance invitation-only: accounts are then created by
+        # `refleet:create-admin` and by invitations from inside the application.
+        ALLOW_SIGNUP: ${ALLOW_SIGNUP:-false}
+        GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
+        GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
+        GITLAB_OAUTH_BASE_URL: ${GITLAB_OAUTH_BASE_URL:-https://gitlab.com}
+        GITLAB_OAUTH_CLIENT_ID: ${GITLAB_OAUTH_CLIENT_ID:-}
+        GITLAB_OAUTH_CLIENT_SECRET: ${GITLAB_OAUTH_CLIENT_SECRET:-}
+
+services:
+    # Runs to completion before anything serves traffic, so the schema is never migrated by
+    # two containers at once — which is what a migrate-on-boot entrypoint would risk here,
+    # with the backend and the worker starting together.
+    migrations:
+        <<: *backend-image
+        restart: "no"
+        command: php bin/console doctrine:migrations:migrate --no-interaction --allow-no-migration
+        depends_on:
+            database:
+                condition: service_healthy
+
+    backend:
+        <<: *backend-image
+        volumes:
+            - uploads:/app/public/uploads
+        depends_on:
+            migrations:
+                condition: service_completed_successfully
+        healthcheck:
+            test: ["CMD", "curl", "-f", "http://localhost:8080/api/health"]
+            interval: 30s
+            timeout: 10s
+            retries: 3
+            start_period: 40s
+
+    # One process drains every context's queue. The monolith declares all six transports
+    # with their real serializers — see backend/app/monolith/config/packages/messenger.yaml.
+    worker:
+        <<: *backend-image
+        command: php bin/console messenger:consume to_identity to_notification to_organization to_runner to_qualification to_shift --time-limit=3600 --memory-limit=192M
+        depends_on:
+            migrations:
+                condition: service_completed_successfully
+        stop_grace_period: 30s
+        healthcheck:
+            test: ["CMD", "php", "-r", "exit((file_exists('/app/var/worker-heartbeat') && (time() - filemtime('/app/var/worker-heartbeat')) < 120) ? 0 : 1);"]
+            interval: 60s
+            timeout: 10s
+            retries: 3
+            start_period: 40s
+
+    frontend:
+        image: ghcr.io/refleet-it/refleet-frontend:${IMAGE_TAG:-latest}
+        restart: unless-stopped
+        networks:
+            - refleet
+        environment:
+            # Server-side rendering calls the API from inside this network, bypassing the proxy.
+            BACKEND_API_URL: http://backend:8080/api
+            NG_ALLOWED_HOSTS: ${APP_DOMAIN}
+            PORT: 4000
+            NODE_OPTIONS: --max-old-space-size=400
+        depends_on:
+            - backend
+
+    caddy:
+        image: caddy:2.10
+        restart: unless-stopped
+        networks:
+            - refleet
+        ports:
+            - "80:80"
+            - "443:443"
+            - "443:443/udp"
+        environment:
+            APP_DOMAIN: ${APP_DOMAIN}
+            # Where Let's Encrypt sends certificate expiry warnings. Caddy needs the
+            # directive to carry a value, so this falls back to a conventional address on
+            # your own domain — set ACME_EMAIL to one you actually read.
+            ACME_EMAIL: ${ACME_EMAIL:-admin@${APP_DOMAIN}}
+        volumes:
+            - ./deploy/selfhost/Caddyfile:/etc/caddy/Caddyfile:ro
+            - caddy-data:/data
+            - caddy-config:/config
+        depends_on:
+            - backend
+            - frontend
+
+    database:
+        image: postgres:16
+        restart: unless-stopped
+        networks:
+            - refleet
+        environment:
+            TZ: ${TZ:-UTC}
+            POSTGRES_DB: ${DB_NAME:-refleet}
+            POSTGRES_USER: ${DB_USER:-refleet}
+            POSTGRES_PASSWORD: ${DB_USER_PASSWORD:?run `make selfhost` or see .env.selfhost.dist}
+        volumes:
+            - postgres-data:/var/lib/postgresql/data
+        healthcheck:
+            test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-refleet} -d ${DB_NAME:-refleet}"]
+            interval: 10s
+            timeout: 5s
+            retries: 5
+
+    # Optional: `docker compose -f compose.selfhost.yml --profile runner up -d`. A runner
+    # does not have to live here at all — it only needs to reach the API, so it runs just as
+    # well on a developer's machine. See docs/runner/installation.md.
+    runner:
+        image: ghcr.io/refleet-it/refleet-runner:${IMAGE_TAG:-latest}
+        profiles: ["runner"]
+        restart: unless-stopped
+        networks:
+            - refleet
+        environment:
+            REFLEET_API_URL: https://${APP_DOMAIN}/api
+            # Empty until you create one under Settings > Developer; the runner says so and exits.
+            REFLEET_API_KEY: ${REFLEET_API_KEY:-}
+            RUNNER_NAME: ${RUNNER_NAME:-selfhost-runner}
+            ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+            KIRO_API_KEY: ${KIRO_API_KEY:-}
+        volumes:
+            - runner-workspace:/workspace
+
+networks:
+    refleet:
+        driver: bridge
+
+volumes:
+    postgres-data:
+    uploads:
+    caddy-data:
+    caddy-config:
+    runner-workspace:

@@ -1,0 +1,28 @@
+# Routing of the contexts that have already moved under app/. Contexts still living in
+# src/ are routed from the shared config/routes/framework.yaml.
+notification:
+    resource: ../../notification/config/routes.yaml
+
+file:
+    resource: ../../file/config/routes.yaml
+
+qualification:
+    resource: ../../qualification/config/routes.yaml
+
+shift:
+    resource: ../../shift/config/routes.yaml
+
+playbook:
+    resource: ../../playbook/config/routes.yaml
+
+runner:
+    resource: ../../runner/config/routes.yaml
+
+project:
+    resource: ../../project/config/routes.yaml
+
+organization:
+    resource: ../../organization/config/routes.yaml
+
+identity:
+    resource: ../../identity/config/routes.yaml

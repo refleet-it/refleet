@@ -1,0 +1,23 @@
+<div
+  class="min-h-screen flex items-center justify-center bg-gray-50 px-4"
+  data-testid="not-found-page"
+>
+  <div class="text-center max-w-md">
+    <h1 class="text-8xl font-bold mb-4">404</h1>
+    <h2 class="text-2xl font-semibold text-gray-900 mb-4">Page not found</h2>
+    <p class="text-gray-600 mb-8">
+      Sorry, but the page you're looking for doesn't exist or has been moved.
+    </p>
+
+    <div class="flex flex-col sm:flex-row gap-3 justify-center">
+      <button hlmBtn (click)="goHome()">
+        <ng-icon name="lucideHouse" />
+        Back to home page
+      </button>
+      <button hlmBtn variant="secondary" (click)="goBack()">
+        <ng-icon name="lucideArrowLeft" />
+        Go back
+      </button>
+    </div>
+  </div>
+</div>

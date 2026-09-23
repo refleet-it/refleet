@@ -1,0 +1,575 @@
+<div class="flex flex-col gap-6">
+  <div>
+    <a
+      [routerLink]="
+        qualification()?.archivedAt
+          ? '/dashboard/qualifications/archive'
+          : '/dashboard/qualifications'
+      "
+      class="text-muted-foreground text-sm hover:underline"
+      >&larr; Back to
+      {{ qualification()?.archivedAt ? 'archived qualifications' : 'qualifications' }}</a
+    >
+  </div>
+
+  @if (qualification(); as qualificationDetail) {
+    <div class="flex flex-wrap items-start justify-between gap-3">
+      <div class="min-w-0">
+        <div class="flex flex-wrap items-center gap-2">
+          <h1 class="text-2xl font-semibold">{{ qualificationDetail.title }}</h1>
+          <app-status-badge
+            [variant]="statusBadgeVariant(qualificationDetail.status)"
+            [working]="isAgentWorking(qualificationDetail.status)"
+          >
+            {{ statusLabels[qualificationDetail.status] }}
+          </app-status-badge>
+          @if (qualificationDetail.archivedAt) {
+            <span hlmBadge variant="outline">Archived</span>
+          }
+        </div>
+        @if (qualificationDetail.description) {
+          <p class="text-muted-foreground mt-1 text-sm">{{ qualificationDetail.description }}</p>
+        }
+      </div>
+
+      @if (!qualificationDetail.archivedAt) {
+        <div class="flex flex-wrap items-center gap-2">
+          @if ('draft' === qualificationDetail.status) {
+            <button hlmBtn size="sm" [disabled]="isStarting()" (click)="start()">
+              @if (isStarting()) {
+                Starting…
+              } @else {
+                Start Qualification
+              }
+            </button>
+          }
+          @if (failedTargetCount(qualificationDetail) > 0) {
+            <button
+              hlmBtn
+              variant="outline"
+              size="sm"
+              [disabled]="isRetrying()"
+              (click)="retryFailed()"
+              title="Enqueue a new runner job for every target that failed"
+            >
+              <ng-icon name="lucideRefreshCw" class="mr-1.5" />
+              @if (isRetrying()) {
+                Retrying…
+              } @else {
+                Retry failed ({{ failedTargetCount(qualificationDetail) }})
+              }
+            </button>
+          }
+          <a
+            hlmBtn
+            size="sm"
+            [variant]="'completed' === qualificationDetail.status ? 'default' : 'outline'"
+            [routerLink]="['/dashboard/shifts/new']"
+            [queryParams]="{ qualificationId: qualificationDetail.id }"
+            title="Create a shift from this qualification's results"
+          >
+            Create Shift
+          </a>
+          <a
+            hlmBtn
+            variant="outline"
+            size="sm"
+            routerLink="/dashboard/qualifications/new"
+            [state]="{ prefill: rerunPrefill() }"
+            title="Create a new qualification pre-filled with this one's criteria and targets"
+          >
+            <ng-icon name="lucideRotateCcw" class="mr-1.5" />
+            Run again
+          </a>
+          @if (canArchive(qualificationDetail)) {
+            <button
+              hlmBtn
+              variant="outline"
+              size="sm"
+              [disabled]="isArchiving()"
+              (click)="archive()"
+            >
+              @if (isArchiving()) {
+                Archiving…
+              } @else {
+                Archive
+              }
+            </button>
+          }
+          @if (!isTerminalStatus(qualificationDetail.status)) {
+            <button
+              hlmBtn
+              variant="destructive"
+              size="sm"
+              [disabled]="showCancelForm()"
+              (click)="toggleCancelForm()"
+            >
+              Cancel Qualification
+            </button>
+          }
+        </div>
+      } @else {
+        <a
+          hlmBtn
+          variant="outline"
+          size="sm"
+          routerLink="/dashboard/qualifications/new"
+          [state]="{ prefill: rerunPrefill() }"
+          title="Create a new qualification pre-filled with this one's criteria and targets"
+        >
+          <ng-icon name="lucideRotateCcw" class="mr-1.5" />
+          Run again
+        </a>
+      }
+    </div>
+
+    @if (qualificationDetail.archivedAt) {
+      <p class="text-muted-foreground text-sm">
+        Archived on {{ formatDate(qualificationDetail.archivedAt) }}. Its targets are kept, but it
+        can no longer be changed or used to create shifts.
+      </p>
+    }
+
+    @if (actionError()) {
+      <p class="text-destructive text-sm">{{ actionError() }}</p>
+    }
+
+    <div class="grid gap-6 xl:grid-cols-[minmax(0,1fr)_20rem] xl:items-start">
+      <div class="flex min-w-0 flex-col gap-6">
+        @if (showCancelForm()) {
+          <div hlmCard>
+            <div hlmCardHeader>
+              <p hlmCardTitle class="text-xl">Cancel Qualification</p>
+              <p hlmCardDescription>Optionally say why, then confirm.</p>
+            </div>
+            <div hlmCardContent class="flex flex-col gap-3">
+              <hlm-field>
+                <label hlmLabel for="cancel-reason">Cancellation Reason (optional)</label>
+                <input
+                  hlmInput
+                  id="cancel-reason"
+                  class="w-full"
+                  placeholder="E.g. no longer needed"
+                  [ngModel]="cancelReason()"
+                  (ngModelChange)="cancelReason.set($event)"
+                  name="cancelReason"
+                />
+              </hlm-field>
+              <div class="flex gap-2">
+                <button
+                  hlmBtn
+                  variant="destructive"
+                  [disabled]="isCancelling()"
+                  (click)="confirmCancel()"
+                >
+                  @if (isCancelling()) {
+                    Cancelling…
+                  } @else {
+                    Confirm Cancellation
+                  }
+                </button>
+                <button hlmBtn variant="ghost" (click)="toggleCancelForm()">Back</button>
+              </div>
+            </div>
+          </div>
+        }
+
+        <div hlmCard>
+          <div hlmCardHeader>
+            <p hlmCardTitle class="text-xl">Targets ({{ targetsList.pagination()?.total ?? 0 }})</p>
+            <p hlmCardDescription>Projects checked by this qualification.</p>
+          </div>
+          <div hlmCardContent>
+            @if (targetsList.isInitialLoading()) {
+              <div class="overflow-x-auto">
+                <table class="w-full text-sm">
+                  <thead>
+                    <tr class="border-border border-b text-left">
+                      <th class="py-2 pr-4 font-medium">Project</th>
+                      <th class="py-2 pr-4 font-medium">Status</th>
+                      <th class="py-2 pr-4 font-medium">Runner</th>
+                      <th class="py-2 font-medium">Result</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <app-table-skeleton-rows [columns]="targetsSkeletonColumns" />
+                  </tbody>
+                </table>
+              </div>
+            } @else if (targetsList.error()) {
+              <app-list-error message="Could not load targets." (retry)="targetsList.refresh()" />
+            } @else if (0 === targetsList.items().length) {
+              <p class="text-muted-foreground text-sm">No targets.</p>
+            } @else {
+              <div class="overflow-x-auto">
+                <table class="w-full text-sm">
+                  <thead>
+                    <tr class="border-border border-b text-left">
+                      <th class="py-2 pr-4 font-medium">Project</th>
+                      <th class="py-2 pr-4 font-medium">Status</th>
+                      <th class="py-2 pr-4 font-medium">Runner</th>
+                      <th class="py-2 font-medium">Result</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    @for (target of targetsList.items(); track target.id) {
+                      <tr class="border-border border-b last:border-0">
+                        <td class="py-2 pr-4">
+                          <div class="font-medium">{{ target.projectSnapshot.name }}</div>
+                          <div class="text-muted-foreground text-xs">
+                            {{ target.projectSnapshot.path }}
+                          </div>
+                        </td>
+                        <td class="py-2 pr-4">
+                          <app-status-badge
+                            [variant]="targetStatusBadgeVariant(target.status)"
+                            [working]="isAgentWorkingOnTarget(target.status)"
+                            [title]="targetStatusTooltip(target)"
+                          >
+                            {{ targetStatusLabels[target.status] }}
+                          </app-status-badge>
+                          @if (scoreLabel(target); as score) {
+                            <span
+                              class="text-muted-foreground ml-1.5 text-xs tabular-nums"
+                              title="Agent score — 4 and 5 qualify"
+                              >{{ score }}</span
+                            >
+                          }
+                        </td>
+                        <td class="text-muted-foreground py-2 pr-4">
+                          @if (target.runnerName && target.runnerId) {
+                            <a
+                              [routerLink]="['/dashboard/runners', target.runnerId]"
+                              class="text-primary hover:underline"
+                            >
+                              {{ target.runnerName }}
+                            </a>
+                          } @else {
+                            {{ target.runnerName ?? '—' }}
+                          }
+                        </td>
+                        <td class="text-muted-foreground max-w-sm py-2">
+                          <div class="truncate" [title]="resultSummary(target)">
+                            {{ resultSummary(target) }}
+                          </div>
+                          <div class="flex flex-wrap items-center gap-x-3">
+                            @if (hasResultDetail(target)) {
+                              <button
+                                hlmBtn
+                                size="sm"
+                                variant="link"
+                                class="h-auto p-0 text-xs"
+                                (click)="showResultDetail(target)"
+                              >
+                                View full result
+                              </button>
+                            }
+                            @if (canRetry(target)) {
+                              <button
+                                hlmBtn
+                                size="sm"
+                                variant="link"
+                                class="h-auto p-0 text-xs"
+                                [disabled]="retryingTargetId() === target.id"
+                                (click)="retryTarget(target)"
+                              >
+                                @if (retryingTargetId() === target.id) {
+                                  Retrying…
+                                } @else {
+                                  Retry
+                                }
+                              </button>
+                            }
+                            @if (canOverride(target) && overridingTargetId() !== target.id) {
+                              <button
+                                hlmBtn
+                                size="sm"
+                                variant="link"
+                                class="h-auto p-0 text-xs"
+                                (click)="startOverride(target)"
+                              >
+                                Set Manually…
+                              </button>
+                            }
+                          </div>
+                          @if (target.overridden) {
+                            <span hlmBadge variant="outline" class="mt-1">Manually reviewed</span>
+                            @if (target.overrideNote) {
+                              <div class="mt-1 text-xs italic">{{ target.overrideNote }}</div>
+                            }
+                          }
+                          @if (canOverride(target) && overridingTargetId() === target.id) {
+                            <div class="mt-2 flex flex-col gap-2">
+                              <label class="sr-only" for="override-note-{{ target.id }}"
+                                >Override note</label
+                              >
+                              <input
+                                hlmInput
+                                id="override-note-{{ target.id }}"
+                                class="h-8 text-xs"
+                                placeholder="Optional note"
+                                [ngModel]="overrideNote()"
+                                (ngModelChange)="overrideNote.set($event)"
+                                name="overrideNote-{{ target.id }}"
+                              />
+                              <div class="flex gap-1">
+                                <button
+                                  hlmBtn
+                                  size="sm"
+                                  variant="outline"
+                                  [disabled]="isOverriding()"
+                                  (click)="submitOverride(target, true)"
+                                >
+                                  Qualified
+                                </button>
+                                <button
+                                  hlmBtn
+                                  size="sm"
+                                  variant="outline"
+                                  [disabled]="isOverriding()"
+                                  (click)="submitOverride(target, false)"
+                                >
+                                  Not Qualified
+                                </button>
+                                <button hlmBtn size="sm" variant="ghost" (click)="cancelOverride()">
+                                  Cancel
+                                </button>
+                              </div>
+                            </div>
+                          }
+                        </td>
+                      </tr>
+                    }
+                  </tbody>
+                </table>
+              </div>
+              <hlm-numbered-pagination
+                class="mt-4"
+                [(currentPage)]="targetsList.page"
+                [(itemsPerPage)]="targetsList.pageSize"
+                [totalItems]="targetsList.pagination()?.total ?? 0"
+              />
+            }
+          </div>
+        </div>
+      </div>
+
+      <aside class="order-first flex flex-col gap-4 xl:sticky xl:top-4 xl:order-last">
+        <div hlmCard>
+          <div hlmCardHeader>
+            <p hlmCardTitle>Progress</p>
+          </div>
+          <div hlmCardContent class="flex flex-col gap-3">
+            @if (0 === targetTotal()) {
+              <p class="text-muted-foreground text-sm">No targets in this qualification.</p>
+            } @else {
+              <div class="flex items-center gap-3">
+                <hlm-progress [value]="progressPercent()" class="w-full">
+                  <hlm-progress-indicator />
+                </hlm-progress>
+                <span class="text-muted-foreground text-sm whitespace-nowrap"
+                  >{{ progressPercent() }}%</span
+                >
+              </div>
+              <div class="flex flex-wrap gap-2">
+                @for (entry of statusBreakdownEntries(); track entry.status) {
+                  <span hlmBadge variant="outline" [title]="entry.description"
+                    >{{ entry.label }}: {{ entry.count }}</span
+                  >
+                }
+              </div>
+            }
+
+            @if ('running' === qualificationDetail.status) {
+              <p class="text-muted-foreground text-xs">
+                Being processed by a runner. This page refreshes automatically.
+              </p>
+            }
+            @if ('completed' === qualificationDetail.status && !qualificationDetail.archivedAt) {
+              <p class="text-muted-foreground text-xs">
+                Complete. Targets stay overridable, and it can be used to create any number of
+                shifts.
+              </p>
+            }
+            @if ('cancelled' === qualificationDetail.status) {
+              <p class="text-muted-foreground text-xs">
+                Cancelled. No further actions are available.
+              </p>
+            }
+          </div>
+        </div>
+
+        <div hlmCard>
+          <div hlmCardHeader>
+            <p hlmCardTitle>Criteria</p>
+            <p hlmCardDescription>The condition each target project is checked against.</p>
+          </div>
+          <div hlmCardContent>
+            <dl class="flex flex-col gap-3 text-sm">
+              @if (qualificationDetail.qualificationSources.length > 0) {
+                <div>
+                  <dt class="text-muted-foreground text-xs font-medium">Playbooks</dt>
+                  <dd class="mt-1 flex flex-wrap gap-1">
+                    @for (source of qualificationDetail.qualificationSources; track source.id) {
+                      <span
+                        hlmBadge
+                        [variant]="'task' === source.kind ? 'default' : 'secondary'"
+                        class="text-[10px]"
+                      >
+                        {{ source.name }}
+                      </span>
+                    }
+                  </dd>
+                </div>
+              }
+              @if (qualificationDetail.qualificationRules) {
+                <div>
+                  <dt class="text-muted-foreground text-xs font-medium">Rules</dt>
+                  <dd class="mt-0.5 line-clamp-3 break-words whitespace-pre-wrap">
+                    {{ qualificationDetail.qualificationRules }}
+                  </dd>
+                </div>
+              }
+              <div>
+                <dt class="text-muted-foreground text-xs font-medium">Prompt</dt>
+                <dd class="mt-0.5 line-clamp-3 break-words whitespace-pre-wrap">
+                  {{ qualificationDetail.qualificationPrompt }}
+                </dd>
+                <button
+                  hlmBtn
+                  size="sm"
+                  variant="link"
+                  class="mt-1 h-auto p-0 text-xs"
+                  (click)="showPrompt()"
+                >
+                  View full prompt as sent to the agent
+                </button>
+              </div>
+              <div>
+                <dt class="text-muted-foreground text-xs font-medium">Agent</dt>
+                <dd class="mt-0.5">
+                  {{ criteriaEngineLabels[qualificationDetail.qualificationEngine ?? 'claude'] }}
+                </dd>
+              </div>
+              @if (qualificationDetail.qualificationModel) {
+                <div>
+                  <dt class="text-muted-foreground text-xs font-medium">Model</dt>
+                  <dd class="mt-0.5 break-all">{{ qualificationDetail.qualificationModel }}</dd>
+                </div>
+              }
+            </dl>
+          </div>
+        </div>
+
+        <div hlmCard>
+          <div hlmCardHeader>
+            <p hlmCardTitle>Details</p>
+          </div>
+          <div hlmCardContent>
+            <dl class="flex flex-col gap-3 text-sm">
+              <div>
+                <dt class="text-muted-foreground text-xs font-medium">Created</dt>
+                <dd class="mt-0.5">{{ formatDate(qualificationDetail.createdAt) }}</dd>
+              </div>
+              <div>
+                <dt class="text-muted-foreground text-xs font-medium">Started</dt>
+                <dd class="mt-0.5">{{ formatDate(qualificationDetail.startedAt) }}</dd>
+              </div>
+              <div>
+                <dt class="text-muted-foreground text-xs font-medium">Completed</dt>
+                <dd class="mt-0.5">{{ formatDate(qualificationDetail.completedAt) }}</dd>
+              </div>
+              @if (qualificationDetail.archivedAt) {
+                <div>
+                  <dt class="text-muted-foreground text-xs font-medium">Archived</dt>
+                  <dd class="mt-0.5">{{ formatDate(qualificationDetail.archivedAt) }}</dd>
+                </div>
+              }
+              @if (qualificationDetail.cancelReason) {
+                <div>
+                  <dt class="text-muted-foreground text-xs font-medium">Cancellation Reason</dt>
+                  <dd class="text-destructive mt-0.5">{{ qualificationDetail.cancelReason }}</dd>
+                </div>
+              }
+            </dl>
+          </div>
+        </div>
+      </aside>
+    </div>
+  } @else if (isLoading()) {
+    <div class="flex flex-wrap items-start justify-between gap-3">
+      <div>
+        <span hlmSkeleton class="block h-8 w-64"></span>
+        <span hlmSkeleton class="mt-2 block h-4 w-80"></span>
+      </div>
+      <div class="flex items-center gap-2">
+        <span hlmSkeleton class="h-8 w-28"></span>
+        <span hlmSkeleton class="h-8 w-28"></span>
+      </div>
+    </div>
+
+    <div class="grid gap-6 xl:grid-cols-[minmax(0,1fr)_20rem] xl:items-start">
+      <div hlmCard class="min-w-0">
+        <div hlmCardHeader>
+          <span hlmSkeleton class="block h-6 w-32"></span>
+          <span hlmSkeleton class="mt-1 block h-4 w-56"></span>
+        </div>
+        <div hlmCardContent>
+          <div class="overflow-x-auto">
+            <table class="w-full text-sm">
+              <thead>
+                <tr class="border-border border-b text-left">
+                  <th class="py-2 pr-4 font-medium">Project</th>
+                  <th class="py-2 pr-4 font-medium">Status</th>
+                  <th class="py-2 pr-4 font-medium">Runner</th>
+                  <th class="py-2 font-medium">Result</th>
+                </tr>
+              </thead>
+              <tbody>
+                <app-table-skeleton-rows [columns]="targetsSkeletonColumns" />
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <div class="order-first flex flex-col gap-4 lg:order-last">
+        <div hlmCard>
+          <div hlmCardHeader>
+            <span hlmSkeleton class="block h-5 w-24"></span>
+          </div>
+          <div hlmCardContent class="flex flex-col gap-3">
+            <span hlmSkeleton class="h-2.5 w-full"></span>
+            <div class="flex flex-wrap gap-2">
+              <span hlmSkeleton class="h-6 w-24"></span>
+              <span hlmSkeleton class="h-6 w-24"></span>
+            </div>
+          </div>
+        </div>
+        <div hlmCard>
+          <div hlmCardHeader>
+            <span hlmSkeleton class="block h-5 w-24"></span>
+            <span hlmSkeleton class="mt-1 block h-4 w-48"></span>
+          </div>
+          <div hlmCardContent class="flex flex-col gap-3">
+            <span hlmSkeleton class="h-5 w-32"></span>
+            <span hlmSkeleton class="h-4 w-full"></span>
+            <span hlmSkeleton class="h-4 w-3/4"></span>
+          </div>
+        </div>
+        <div hlmCard>
+          <div hlmCardHeader>
+            <span hlmSkeleton class="block h-5 w-20"></span>
+          </div>
+          <div hlmCardContent class="flex flex-col gap-3">
+            <span hlmSkeleton class="h-4 w-40"></span>
+            <span hlmSkeleton class="h-4 w-40"></span>
+            <span hlmSkeleton class="h-4 w-40"></span>
+          </div>
+        </div>
+      </div>
+    </div>
+  } @else if (loadError()) {
+    <p class="text-destructive text-sm">{{ loadError() }}</p>
+  }
+</div>

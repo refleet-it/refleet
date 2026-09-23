@@ -1,0 +1,121 @@
+# Publishes what a self-hoster consumes: the three container images, and the runner on npm.
+# Runs on every push to main — the images are what compose.selfhost.yml pulls, so `latest`
+# moving with main is the point. Tagged releases additionally get their tag.
+name: Release
+
+on:
+    push:
+        branches: [main]
+        tags: ['v*']
+
+permissions:
+    contents: read
+
+concurrency:
+    group: release-${{ github.ref }}
+    cancel-in-progress: false
+
+jobs:
+    images:
+        name: Images
+        runs-on: ubuntu-latest
+        permissions:
+            contents: read
+            packages: write
+        strategy:
+            fail-fast: false
+            matrix:
+                include:
+                    -   name: backend
+                        dockerfile: backend/Dockerfile
+                        context: .
+                        target: prod
+                        build_args: ''
+                    -   name: frontend
+                        dockerfile: frontend/Dockerfile.ssr
+                        # Built from the repository root, not frontend/: the image renders
+                        # docs/ into the pages served at /docs.
+                        context: .
+                        target: ''
+                        build_args: BUILD_HASH=${{ github.sha }}
+                    -   name: runner
+                        dockerfile: runner/agent/Dockerfile
+                        context: runner/agent
+                        target: ''
+                        # Stamps the same version the npm job publishes, so a runner built
+                        # from this commit reports it on every heartbeat and the dashboard
+                        # can tell an outdated one from a current one.
+                        build_args: RUNNER_VERSION_PATCH=${{ github.run_number }}
+        steps:
+            -   uses: actions/checkout@v5
+
+            -   uses: docker/setup-buildx-action@v3
+
+            -   uses: docker/login-action@v3
+                with:
+                    registry: ghcr.io
+                    username: ${{ github.actor }}
+                    password: ${{ secrets.GITHUB_TOKEN }}
+
+            -   id: meta
+                uses: docker/metadata-action@v5
+                with:
+                    images: ghcr.io/${{ github.repository_owner }}/refleet-${{ matrix.name }}
+                    tags: |
+                        type=raw,value=latest,enable={{is_default_branch}}
+                        type=sha,format=long
+                        type=ref,event=tag
+
+            -   uses: docker/build-push-action@v6
+                with:
+                    context: ${{ matrix.context }}
+                    file: ${{ matrix.dockerfile }}
+                    target: ${{ matrix.target }}
+                    build-args: ${{ matrix.build_args }}
+                    push: true
+                    tags: ${{ steps.meta.outputs.tags }}
+                    labels: ${{ steps.meta.outputs.labels }}
+                    cache-from: type=gha
+                    cache-to: type=gha,mode=max
+
+    npm:
+        name: npm
+        runs-on: ubuntu-latest
+        # Only from main: a tag build would republish a version that already exists.
+        if: github.ref == 'refs/heads/main'
+        defaults:
+            run:
+                working-directory: runner/agent
+        steps:
+            -   uses: actions/checkout@v5
+            -   uses: actions/setup-node@v5
+                with:
+                    node-version: 22
+                    registry-url: https://registry.npmjs.org
+
+            -   run: npm ci --no-audit
+            -   run: npm test
+
+            -   name: Stamp the version
+                # <major>.<minor> from package.json with this run's number as the patch, so
+                # every push to main that touches the runner ships a strictly increasing
+                # version without anyone editing package.json. Bump the minor there to open a
+                # new series.
+                run: |
+                    BASE=$(node -p "require('./package.json').version.split('.').slice(0,2).join('.')")
+                    npm version --no-git-tag-version "${BASE}.${{ github.run_number }}"
+
+            -   name: Publish if that version is new
+                env:
+                    NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+                run: |
+                    if [ -z "${NODE_AUTH_TOKEN}" ]; then
+                        echo "NPM_TOKEN is not set — skipping publish."
+                        exit 0
+                    fi
+                    VERSION=$(node -p "require('./package.json').version")
+                    if npm view "@refleet-it/runner@${VERSION}" version >/dev/null 2>&1; then
+                        echo "@refleet-it/runner@${VERSION} is already published."
+                        exit 0
+                    fi
+                    npm publish --access public

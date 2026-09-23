@@ -1,0 +1,45 @@
+security:
+    password_hashers:
+        Symfony\Component\Security\Core\User\PasswordAuthenticatedUserInterface: 'auto'
+    firewalls:
+        dev:
+            pattern: ^/(css|images|js)/
+            security: false
+        internal:
+            pattern: ^/internal
+            stateless: true
+            custom_authenticators:
+                - App\Shared\Infrastructure\Security\InternalTokenAuthenticator
+        main:
+            lazy: true
+            stateless: true
+            provider: app_user_provider
+            custom_authenticators:
+                - App\Shared\Infrastructure\Security\ApiKeyAuthenticator
+                - App\Shared\Infrastructure\Security\JwtAuthenticator
+
+# `providers` and `access_control` are deliberately not here — each app declares its own in
+# app/<context>/config/packages/security.yaml (the monolith gets its own too, since it can't
+# just import all eight: see the note below). Two different reasons, same shape of problem:
+#
+# - `providers.app_user_provider` names WHICH service backs the login `main` firewall
+#   references above. Identity is the only context with a real one
+#   (Account\Infrastructure\Security\AccountUserProvider); every other context points the
+#   same name at App\Shared\Infrastructure\Security\NullUserProvider, since both
+#   authenticators build their AccountUser directly and never call the configured provider.
+#
+# - `access_control` is a prototype node that Symfony refuses to merge across sections —
+#   declaring it in more than one loaded file fails cache:warmup with "security.access_control
+#   cannot be overwritten", so it must be one complete list per running APP_ID, not assembled
+#   from fragments. That's also why the monolith doesn't import the eight apps' security.yaml
+#   files the way it does services/doctrine/messenger: it needs its own single, complete
+#   access_control (and provider) rather than whichever import happened to load last.
+
+when@test:
+    security:
+        password_hashers:
+            Symfony\Component\Security\Core\User\PasswordAuthenticatedUserInterface:
+                algorithm: auto
+                cost: 4 # Lowest possible value for bcrypt
+                time_cost: 3 # Lowest possible value for argon
+                memory_cost: 10 # Lowest possible value for argon

@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Refleet</title>
+    <base href="/" />
+
+    <!-- Basic Meta Tags -->
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=5" />
+    <meta name="color-scheme" content="light" />
+    <meta
+      name="description"
+      content="Refleet qualifies, applies, and tracks changes across every microservice in your GitLab group."
+    />
+    <meta name="author" content="Refleet" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="Refleet" />
+    <meta name="format-detection" content="telephone=no" />
+
+    <!-- Open Graph / Facebook -->
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Refleet" />
+    <meta
+      property="og:description"
+      content="Refleet qualifies, applies, and tracks changes across every microservice in your GitLab group."
+    />
+    <meta property="og:locale" content="en_US" />
+    <meta property="og:site_name" content="Refleet" />
+
+    <!-- Twitter Card -->
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="Refleet" />
+    <meta
+      name="twitter:description"
+      content="Refleet qualifies, applies, and tracks changes across every microservice in your GitLab group."
+    />
+
+    <!-- Security -->
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="referrer" content="strict-origin-when-cross-origin" />
+
+    <!-- Auth flash prevention: hide app-root until Angular resolves auth state -->
+    <style>
+      html.auth-pending app-root {
+        visibility: hidden;
+      }
+    </style>
+    <script>
+      try {
+        if (localStorage.getItem('auth_hint') === '1') {
+          document.documentElement.classList.add('auth-pending');
+        }
+      } catch (e) {}
+    </script>
+
+    <!-- Favicons -->
+    <link rel="icon" type="image/svg+xml" href="favicon.svg" />
+    <link rel="icon" type="image/x-icon" href="favicon.ico" />
+    <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png" />
+    <link rel="icon" type="image/png" sizes="192x192" href="android-chrome-192x192.png" />
+    <link rel="icon" type="image/png" sizes="512x512" href="android-chrome-512x512.png" />
+    <link rel="manifest" href="site.webmanifest" />
+  </head>
+  <body>
+    <app-root></app-root>
+  </body>
+</html>

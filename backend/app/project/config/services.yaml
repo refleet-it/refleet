@@ -1,0 +1,39 @@
+services:
+    _defaults:
+        autowire: true
+        autoconfigure: true
+
+    App\Project\:
+        resource: '../src/'
+        exclude:
+            - '../src/Project/Infrastructure/Api/'
+
+    App\Project\Project\Infrastructure\Api\:
+        resource: '../src/Project/Infrastructure/Api/**/*Controller.php'
+        tags: ['controller.service_arguments']
+
+    App\Project\Project\Infrastructure\Persistence\:
+        resource: '../src/Project/Infrastructure/Persistence/'
+        bind:
+            Doctrine\ORM\EntityManagerInterface: '@doctrine.orm.project_entity_manager'
+
+    # Ports owned by this context, consumed by others through Shared
+    App\Shared\Domain\Service\ProjectCatalogInterface:
+        alias: App\Project\Project\Infrastructure\Service\ProjectCatalog
+
+    App\Shared\Domain\Service\ProjectRegistryInterface:
+        alias: App\Project\Project\Infrastructure\Service\ProjectRegistry
+
+    # HTTP-backed adapter — see App\Shared\Infrastructure\Http\Internal\HttpApiKeyValidator.
+    App\Shared\Domain\Service\ApiKeyValidatorInterface:
+        alias: App\Shared\Infrastructure\Http\Internal\HttpApiKeyValidator
+
+    # HTTP-backed adapters — see App\Shared\Infrastructure\Http\Internal\.
+    App\Shared\Domain\Service\OrganizationContextProviderInterface:
+        alias: App\Shared\Infrastructure\Http\Internal\HttpOrganizationContextProvider
+
+    # Registers the shared domain-event dispatcher for this context's own connection only —
+    # see App\Shared\Application\Event\DomainEventDispatcher.
+    App\Shared\Application\Event\DomainEventDispatcher:
+        tags:
+            - { name: 'doctrine.event_listener', event: 'preFlush', connection: 'project', priority: 500 }

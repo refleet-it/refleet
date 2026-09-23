@@ -1,0 +1,17 @@
+<div
+  class="flex flex-col items-center gap-4 py-16 text-center"
+  data-testid="gitlab-oauth-callback-page"
+>
+  @if (error(); as message) {
+    <ng-icon name="lucideCircleX" class="text-destructive" style="font-size: 3rem" />
+    <h1 class="text-xl font-semibold">GitLab connection failed</h1>
+    <p class="text-muted-foreground max-w-md text-sm">{{ message }}</p>
+    <button hlmBtn type="button" variant="outline" (click)="backToSettings()">
+      <ng-icon name="lucideArrowLeft" />
+      Back to settings
+    </button>
+  } @else {
+    <ng-icon name="lucideLoader2" class="animate-spin" style="font-size: 3rem" />
+    <p class="text-muted-foreground text-sm">Finishing the GitLab connection…</p>
+  }
+</div>

@@ -1,0 +1,331 @@
+# Base configuration shared between all environments
+# Local: docker compose up (uses compose.yml + compose.override.yml automatically)
+# Prod: docker compose -f compose.yml -f compose.prod.yml up
+#
+# Runtime topology: one container per bounded context (backend-<context>), each booted with
+# APP_ID=<context> — see docs/adr/0001-multiple-kernels.md. Every container runs the exact
+# same image and the exact same Caddyfile (it only ever serves its own /api/*, /internal/*
+# and health/metrics — nothing in it is context-specific), so the only per-service
+# difference below is APP_ID. caddy-gateway is the one container with a published host
+# port; it is the only thing that needs to know which context serves which /api/* path —
+# see infra/caddy/Caddyfile.gateway. Everything under /internal/* is reached
+# container-to-container by service DNS name (App\Shared\Infrastructure\Http\InternalApiClient),
+# never through the gateway.
+
+x-backend-build: &backend-build
+    context: .
+    dockerfile: backend/Dockerfile
+
+x-backend-env: &backend-env
+    TZ: Europe/Warsaw
+    APP_SECRET: ${APP_SECRET:?APP_SECRET must be set (see .env.dist)}
+    # Safe to broadcast: this only verifies a JWT's signature, it cannot produce one.
+    # JWT_PRIVATE_KEY (signing) is added explicitly below, only to the identity and
+    # monolith services — see docs/adr/0001-multiple-kernels.md.
+    JWT_PUBLIC_KEY: ${JWT_PUBLIC_KEY:?JWT_PUBLIC_KEY must be set (see .env.dist)}
+    INTERNAL_SERVICE_TOKEN: ${INTERNAL_SERVICE_TOKEN:?INTERNAL_SERVICE_TOKEN must be set (see .env.dist)}
+    DATABASE_URL: ${DATABASE_URL:?DATABASE_URL must be set (see .env.dist)}
+    MESSENGER_TRANSPORT_DSN: ${MESSENGER_TRANSPORT_DSN:-doctrine://default}
+    # Every context reads all six regardless of which ports it actually calls — same
+    # broadcast-to-everyone approach as DATABASE_URL above.
+    IDENTITY_INTERNAL_URL: http://backend-identity
+    ORGANIZATION_INTERNAL_URL: http://backend-organization
+    RUNNER_INTERNAL_URL: http://backend-runner
+    PROJECT_INTERNAL_URL: http://backend-project
+    QUALIFICATION_INTERNAL_URL: http://backend-qualification
+    NOTIFICATION_INTERNAL_URL: http://backend-notification
+
+x-backend-healthcheck: &backend-healthcheck
+    test: ["CMD", "curl", "-f", "http://localhost/api/health"]
+    interval: 30s
+    timeout: 10s
+    retries: 3
+    start_period: 40s
+
+x-worker-healthcheck: &worker-healthcheck
+    # Real liveness check: the WorkerHeartbeatListener touches this file on every worker
+    # loop iteration, so a stale mtime means the process is hung, not just alive.
+    test: ["CMD", "php", "-r", "exit((file_exists('/app/var/worker-heartbeat') && (time() - filemtime('/app/var/worker-heartbeat')) < 120) ? 0 : 1);"]
+    interval: 60s
+    timeout: 10s
+    retries: 3
+    start_period: 40s
+
+services:
+    # Not part of the served topology (caddy-gateway + backend-<context> handle live
+    # traffic) — this is APP_ID=monolith, kept purely as the workhorse for operations that
+    # are inherently cross-context: `make quality-check`'s full PHPUnit/PHPStan/PHPArkitect
+    # run (scoped to app/*/src and app/*/tests together), migrations and fixture loading
+    # across every schema, `composer install`, and the like. See docs/adr/0001-multiple-kernels.md
+    # and Makefile, which exec's into this service by name for all of the above — keeping it
+    # means none of those targets needed to change. Not published on any host port; the
+    # public entrypoint is caddy-gateway.
+    backend:
+        build: *backend-build
+        environment:
+            <<: *backend-env
+            APP_ID: monolith
+            # Runs identity in-process, so it needs to be able to sign tokens too.
+            JWT_PRIVATE_KEY: ${JWT_PRIVATE_KEY:?JWT_PRIVATE_KEY must be set (see .env.dist)}
+        networks:
+            - network-app
+        depends_on:
+            database:
+                condition: service_healthy
+        healthcheck: *backend-healthcheck
+
+    caddy-gateway:
+        image: caddy:2.10@sha256:c3d7ee5d2b11f9dc54f947f68a734c84e9c9666c92c88a7f30b9cba5da182adb
+        depends_on:
+            - backend-file
+            - backend-identity
+            - backend-notification
+            - backend-organization
+            - backend-project
+            - backend-playbook
+            - backend-qualification
+            - backend-runner
+            - backend-shift
+        networks:
+            - network-app
+
+    backend-file:
+        build: *backend-build
+        environment:
+            <<: *backend-env
+            APP_ID: file
+        networks:
+            - network-app
+        depends_on:
+            database:
+                condition: service_healthy
+        healthcheck: *backend-healthcheck
+
+    backend-identity:
+        build: *backend-build
+        environment:
+            <<: *backend-env
+            APP_ID: identity
+            # Only identity signs tokens — see the comment on JWT_PUBLIC_KEY above.
+            JWT_PRIVATE_KEY: ${JWT_PRIVATE_KEY:?JWT_PRIVATE_KEY must be set (see .env.dist)}
+        networks:
+            - network-app
+        depends_on:
+            database:
+                condition: service_healthy
+        healthcheck: *backend-healthcheck
+
+    backend-notification:
+        build: *backend-build
+        environment:
+            <<: *backend-env
+            APP_ID: notification
+        networks:
+            - network-app
+        depends_on:
+            database:
+                condition: service_healthy
+        healthcheck: *backend-healthcheck
+
+    backend-organization:
+        build: *backend-build
+        environment:
+            <<: *backend-env
+            APP_ID: organization
+        networks:
+            - network-app
+        depends_on:
+            database:
+                condition: service_healthy
+        healthcheck: *backend-healthcheck
+
+    backend-project:
+        build: *backend-build
+        environment:
+            <<: *backend-env
+            APP_ID: project
+        networks:
+            - network-app
+        depends_on:
+            database:
+                condition: service_healthy
+        healthcheck: *backend-healthcheck
+
+    backend-qualification:
+        build: *backend-build
+        environment:
+            <<: *backend-env
+            APP_ID: qualification
+        networks:
+            - network-app
+        depends_on:
+            database:
+                condition: service_healthy
+        healthcheck: *backend-healthcheck
+
+    backend-runner:
+        build: *backend-build
+        environment:
+            <<: *backend-env
+            APP_ID: runner
+        networks:
+            - network-app
+        depends_on:
+            database:
+                condition: service_healthy
+        healthcheck: *backend-healthcheck
+
+    backend-playbook:
+        build: *backend-build
+        environment:
+            <<: *backend-env
+            APP_ID: playbook
+        networks:
+            - network-app
+        depends_on:
+            database:
+                condition: service_healthy
+        healthcheck: *backend-healthcheck
+
+    backend-shift:
+        build: *backend-build
+        environment:
+            <<: *backend-env
+            APP_ID: shift
+        networks:
+            - network-app
+        depends_on:
+            database:
+                condition: service_healthy
+        healthcheck: *backend-healthcheck
+
+    # One worker per context that actually consumes a transport (see
+    # app/<context>/config/packages/messenger.yaml) — file and project don't, so they get no
+    # worker.
+    worker-identity:
+        build: *backend-build
+        environment:
+            <<: *backend-env
+            APP_ID: identity
+            JWT_PRIVATE_KEY: ${JWT_PRIVATE_KEY:?JWT_PRIVATE_KEY must be set (see .env.dist)}
+        command: php bin/console messenger:consume to_identity --time-limit=3600 --memory-limit=128M
+        networks:
+            - network-app
+        depends_on:
+            database:
+                condition: service_healthy
+            backend-identity:
+                condition: service_healthy
+        healthcheck: *worker-healthcheck
+        stop_grace_period: 30s
+        restart: unless-stopped
+
+    worker-notification:
+        build: *backend-build
+        environment:
+            <<: *backend-env
+            APP_ID: notification
+        command: php bin/console messenger:consume to_notification --time-limit=3600 --memory-limit=128M
+        networks:
+            - network-app
+        depends_on:
+            database:
+                condition: service_healthy
+            backend-notification:
+                condition: service_healthy
+        healthcheck: *worker-healthcheck
+        stop_grace_period: 30s
+        restart: unless-stopped
+
+    worker-organization:
+        build: *backend-build
+        environment:
+            <<: *backend-env
+            APP_ID: organization
+        command: php bin/console messenger:consume to_organization --time-limit=3600 --memory-limit=128M
+        networks:
+            - network-app
+        depends_on:
+            database:
+                condition: service_healthy
+            backend-organization:
+                condition: service_healthy
+        healthcheck: *worker-healthcheck
+        stop_grace_period: 30s
+        restart: unless-stopped
+
+    worker-qualification:
+        build: *backend-build
+        environment:
+            <<: *backend-env
+            APP_ID: qualification
+        command: php bin/console messenger:consume to_qualification --time-limit=3600 --memory-limit=128M
+        networks:
+            - network-app
+        depends_on:
+            database:
+                condition: service_healthy
+            backend-qualification:
+                condition: service_healthy
+        healthcheck: *worker-healthcheck
+        stop_grace_period: 30s
+        restart: unless-stopped
+
+    worker-runner:
+        build: *backend-build
+        environment:
+            <<: *backend-env
+            APP_ID: runner
+        command: php bin/console messenger:consume to_runner --time-limit=3600 --memory-limit=128M
+        networks:
+            - network-app
+        depends_on:
+            database:
+                condition: service_healthy
+            backend-runner:
+                condition: service_healthy
+        healthcheck: *worker-healthcheck
+        stop_grace_period: 30s
+        restart: unless-stopped
+
+    worker-shift:
+        build: *backend-build
+        environment:
+            <<: *backend-env
+            APP_ID: shift
+        command: php bin/console messenger:consume to_shift --time-limit=3600 --memory-limit=128M
+        networks:
+            - network-app
+        depends_on:
+            database:
+                condition: service_healthy
+            backend-shift:
+                condition: service_healthy
+        healthcheck: *worker-healthcheck
+        stop_grace_period: 30s
+        restart: unless-stopped
+
+    database:
+        image: postgres:16@sha256:95206741a5b214807675e14165369d05b93a9cf692223b616d07cca227e74b0b
+        restart: always
+        environment:
+            TZ: Europe/Warsaw
+            POSTGRES_DB: ${DB_NAME:-refleet_db}
+            POSTGRES_USER: ${DB_USER:-refleet}
+            POSTGRES_PASSWORD: ${DB_USER_PASSWORD:?DB_USER_PASSWORD must be set (see .env.dist)}
+        networks:
+            - network-app
+        healthcheck:
+            test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-refleet} -d ${DB_NAME:-refleet_db}"]
+            interval: 10s
+            timeout: 5s
+            retries: 5
+        volumes:
+            - postgres-data:/var/lib/postgresql/data
+
+networks:
+    network-app:
+        driver: bridge
+
+volumes:
+    postgres-data:

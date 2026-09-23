@@ -1,0 +1,35 @@
+# The identity context owns one connection and one entity manager. They live here so the
+# application that serves this context declares its own database wiring instead of
+# inheriting all eight — see docs/adr/0001-multiple-kernels.md.
+doctrine:
+    dbal:
+        connections:
+            identity:
+                url: '%env(resolve:DATABASE_URL)%'
+                profiling_collect_backtrace: false
+                schema_filter: ~^(identity\.|public\.doctrine_migration_versions)~
+                options:
+                    1002: "SET search_path TO identity, public"
+    orm:
+        default_entity_manager: identity
+        entity_managers:
+            identity:
+                connection: identity
+                naming_strategy: doctrine.orm.naming_strategy.underscore_number_aware
+                metadata_cache_driver:
+                    type: pool
+                    pool: cache.app
+                mappings:
+                    Identity:
+                        type: attribute
+                        is_bundle: false
+                        dir: '%kernel.project_dir%/app/identity/src'
+                        prefix: 'App\Identity'
+                        alias: Identity
+
+when@test:
+    doctrine:
+        dbal:
+            connections:
+                identity:
+                    dbname_suffix: '_test%env(default::TEST_TOKEN)%'

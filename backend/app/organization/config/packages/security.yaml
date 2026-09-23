@@ -1,0 +1,14 @@
+security:
+    providers:
+        app_user_provider:
+            id: App\Shared\Infrastructure\Security\NullUserProvider
+
+    access_control:
+        - { path: ^/internal, roles: IS_AUTHENTICATED_FULLY }
+        - { path: ^/api/organizations/invitations/accept, roles: PUBLIC_ACCESS }
+        - { path: ^/api/health, roles: PUBLIC_ACCESS }
+        - { path: ^/api/instance, roles: PUBLIC_ACCESS }
+        - { path: ^/api/client-errors, roles: PUBLIC_ACCESS }
+        - { path: ^/api/metrics, roles: PUBLIC_ACCESS }
+        - { path: ^/api/doc, roles: PUBLIC_ACCESS }
+        - { path: ^/api, roles: IS_AUTHENTICATED_FULLY }

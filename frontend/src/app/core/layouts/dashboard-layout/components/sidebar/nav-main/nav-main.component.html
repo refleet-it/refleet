@@ -1,0 +1,58 @@
+<hlm-sidebar-group>
+  <ul hlmSidebarMenu>
+    @for (item of items(); track item.label) {
+      @if (item.sectionHeader) {
+        <div hlmSidebarGroupLabel>{{ item.sectionHeader }}</div>
+      } @else if (!item.children || item.children.length === 0) {
+        <li hlmSidebarMenuItem>
+          <a
+            hlmSidebarMenuButton
+            draggable="false"
+            [routerLink]="[item.routerLink]"
+            routerLinkActive="bg-sidebar-accent text-sidebar-accent-foreground"
+            [routerLinkActiveOptions]="{ exact: item.exact ?? false }"
+            (click)="closeMobileSidebar()"
+          >
+            <ng-icon [name]="item.icon" />
+            {{ item.label }}
+          </a>
+        </li>
+      } @else {
+        <hlm-collapsible [expanded]="item.expanded ?? isChildActive(item)">
+          <li hlmSidebarMenuItem>
+            <button
+              hlmCollapsibleTrigger
+              hlmSidebarMenuButton
+              [class.bg-sidebar-accent]="isChildActive(item)"
+            >
+              <ng-icon [name]="item.icon" />
+              {{ item.label }}
+              <ng-icon
+                name="lucideChevronRight"
+                class="ml-auto transition-transform group-data-[state=open]:rotate-90"
+              />
+            </button>
+            <hlm-collapsible-content>
+              <ul hlmSidebarMenuSub>
+                @for (child of item.children; track child.label) {
+                  <li hlmSidebarMenuSubItem>
+                    <a
+                      hlmSidebarMenuSubButton
+                      draggable="false"
+                      [routerLink]="child.routerLink?.split('/')"
+                      routerLinkActive="bg-sidebar-accent text-sidebar-accent-foreground"
+                      [routerLinkActiveOptions]="{ exact: true }"
+                      (click)="closeMobileSidebar()"
+                    >
+                      {{ child.label }}
+                    </a>
+                  </li>
+                }
+              </ul>
+            </hlm-collapsible-content>
+          </li>
+        </hlm-collapsible>
+      }
+    }
+  </ul>
+</hlm-sidebar-group>

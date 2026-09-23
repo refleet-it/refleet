@@ -1,0 +1,215 @@
+<div class="flex flex-col gap-6">
+  <div>
+    <a routerLink="/dashboard/shifts" class="text-muted-foreground text-sm hover:underline"
+      >&larr; Back to shifts</a
+    >
+  </div>
+
+  <div>
+    <h1 class="text-2xl font-semibold">New Shift</h1>
+    <p class="text-muted-foreground text-sm">
+      Pick the projects to change — from a qualification's results, or by hand.
+    </p>
+  </div>
+
+  <div hlmCard>
+    <form hlmCardContent class="flex flex-col gap-5" (ngSubmit)="createShift()">
+      <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        <hlm-field [forceInvalid]="showFieldError('title')">
+          <label hlmLabel for="shift-title">Title</label>
+          <input
+            hlmInput
+            id="shift-title"
+            class="w-full"
+            placeholder="Bump acme/legacy-lib to v3"
+            [ngModel]="title()"
+            (ngModelChange)="title.set($event)"
+            [forceInvalid]="showFieldError('title')"
+            name="title"
+          />
+          @if (showFieldError('title')) {
+            <hlm-field-error forceShow>{{ fieldErrors().title }}</hlm-field-error>
+          }
+        </hlm-field>
+
+        <hlm-field>
+          <label hlmLabel for="shift-description">Description (optional)</label>
+          <input
+            hlmInput
+            id="shift-description"
+            class="w-full"
+            placeholder="Short description of the shift"
+            [ngModel]="description()"
+            (ngModelChange)="description.set($event)"
+            name="description"
+          />
+        </hlm-field>
+      </div>
+
+      <fieldset hlmFieldSet>
+        <legend hlmFieldLegend variant="label">Target Source</legend>
+        <hlm-radio-group
+          class="flex flex-col gap-2 sm:flex-row sm:gap-6"
+          [value]="sourceMode()"
+          (valueChange)="setSourceMode($event)"
+        >
+          <div class="flex items-center gap-3">
+            <hlm-radio value="qualification" inputId="source-mode-qualification">
+              <hlm-radio-indicator indicator />
+            </hlm-radio>
+            <label hlmLabel for="source-mode-qualification">From a qualification</label>
+          </div>
+          <div class="flex items-center gap-3">
+            <hlm-radio value="manual" inputId="source-mode-manual">
+              <hlm-radio-indicator indicator />
+            </hlm-radio>
+            <label hlmLabel for="source-mode-manual">Manual selection</label>
+          </div>
+        </hlm-radio-group>
+      </fieldset>
+
+      @if ('qualification' === sourceMode()) {
+        <hlm-field [forceInvalid]="showFieldError('qualificationId')">
+          <label hlmLabel for="shift-qualification">Qualification</label>
+          @if (isLoadingQualifications()) {
+            <p class="text-muted-foreground text-sm">Loading qualifications…</p>
+          } @else if (qualificationsFailed()) {
+            <p class="text-destructive text-sm">
+              Could not load your qualifications. Refresh the page to try again.
+            </p>
+          } @else if (0 === completedQualifications().length) {
+            <p class="text-muted-foreground text-sm">
+              No completed qualifications yet.
+              <a class="text-primary underline" routerLink="/dashboard/qualifications/new"
+                >Create one first.</a
+              >
+            </p>
+          } @else {
+            <select
+              id="shift-qualification"
+              class="border-input bg-background h-9 w-full rounded-md border px-3 text-sm sm:w-96"
+              [ngModel]="selectedQualificationId()"
+              (ngModelChange)="selectQualification($event)"
+              name="qualificationId"
+            >
+              <option value="">Select a qualification…</option>
+              @for (qualification of completedQualifications(); track qualification.id) {
+                <option [value]="qualification.id">
+                  {{ qualification.title }} ({{ qualification.targetCount }} targets)
+                </option>
+              }
+            </select>
+          }
+          @if (showFieldError('qualificationId')) {
+            <hlm-field-error forceShow>{{ fieldErrors().qualificationId }}</hlm-field-error>
+          }
+        </hlm-field>
+
+        @if (selectedQualificationId()) {
+          @if (isLoadingQualificationTargets()) {
+            <p class="text-muted-foreground text-sm">Loading targets…</p>
+          } @else {
+            <fieldset hlmFieldSet>
+              <legend hlmFieldLegend variant="label">Which targets?</legend>
+
+              <hlm-radio-group
+                class="flex flex-col gap-2"
+                [value]="useAllQualifiedTargets() ? 'all' : 'manual'"
+                (valueChange)="setUseAllQualifiedTargets('all' === $event)"
+              >
+                <div class="flex items-center gap-3">
+                  <hlm-radio value="all" inputId="qualification-target-mode-all">
+                    <hlm-radio-indicator indicator />
+                  </hlm-radio>
+                  <label hlmLabel for="qualification-target-mode-all"
+                    >All currently qualified targets</label
+                  >
+                </div>
+                <div class="flex items-center gap-3">
+                  <hlm-radio value="manual" inputId="qualification-target-mode-manual">
+                    <hlm-radio-indicator indicator />
+                  </hlm-radio>
+                  <label hlmLabel for="qualification-target-mode-manual"
+                    >Pick specific targets manually</label
+                  >
+                </div>
+              </hlm-radio-group>
+
+              @if (useAllQualifiedTargets()) {
+                <p class="text-muted-foreground text-xs">
+                  Every target that is currently
+                  <span class="font-medium">Qualified</span>
+                  when the shift starts will be included — even ones that qualify after this shift
+                  is created but before it starts.
+                </p>
+              } @else if (qualificationTargetsFailed()) {
+                <p class="text-destructive text-sm">
+                  Could not load this qualification's targets. Refresh the page to try again.
+                </p>
+              } @else if (0 === qualificationTargets().length) {
+                <p class="text-muted-foreground text-sm">This qualification has no targets.</p>
+              } @else {
+                <app-project-tree-picker
+                  idPrefix="qualification-target"
+                  [items]="qualificationTargetItems()"
+                  [(selectedIds)]="selectedQualificationTargetProjectIds"
+                  [invalid]="showFieldError('projects')"
+                />
+                @if (showFieldError('projects')) {
+                  <hlm-field-error forceShow>{{ fieldErrors().projects }}</hlm-field-error>
+                }
+              }
+            </fieldset>
+          }
+        }
+      } @else {
+        <fieldset hlmFieldSet>
+          <legend hlmFieldLegend variant="label">Target Projects</legend>
+          <p class="text-muted-foreground text-xs">
+            Required — select the exact projects to include. A manual shift has no criteria to fall
+            back on.
+          </p>
+
+          @if (isLoadingProjects()) {
+            <p class="text-muted-foreground text-sm">Loading projects…</p>
+          } @else if (projectsFailed()) {
+            <p class="text-destructive text-sm">
+              Could not load your projects. Refresh the page to try again.
+            </p>
+          } @else if (0 === projects().length) {
+            <p class="text-muted-foreground text-sm">
+              No registered projects. They are synced from a GitLab group —
+              <a class="text-primary underline" routerLink="/dashboard/settings">connect GitLab</a>
+              first.
+            </p>
+          } @else {
+            <app-project-tree-picker
+              [items]="projects()"
+              [(selectedIds)]="selectedProjectIds"
+              [invalid]="showFieldError('projects')"
+            />
+          }
+
+          @if (showFieldError('projects')) {
+            <hlm-field-error forceShow>{{ fieldErrors().projects }}</hlm-field-error>
+          }
+        </fieldset>
+      }
+
+      @if (createError()) {
+        <p class="text-destructive text-sm">{{ createError() }}</p>
+      }
+
+      <div class="flex items-center gap-3">
+        <button hlmBtn type="submit" [disabled]="isCreating()">
+          @if (isCreating()) {
+            Creating…
+          } @else {
+            Create Shift
+          }
+        </button>
+        <a hlmBtn variant="ghost" routerLink="/dashboard/shifts">Cancel</a>
+      </div>
+    </form>
+  </div>
+</div>

@@ -1,0 +1,17 @@
+<!-- The router owns the URL, so a plain "#main-content" href navigates instead of moving focus. -->
+<a
+  href="#main-content"
+  class="bg-background text-foreground focus:ring-ring sr-only focus:not-sr-only focus:fixed focus:top-4 focus:left-4 focus:z-50 focus:rounded-md focus:px-4 focus:py-2 focus:ring-2"
+  (click)="skipToContent($event, mainContent)"
+  >Skip to content</a
+>
+
+<div hlmSidebarWrapper>
+  <app-sidebar [menuItems]="menuItems"></app-sidebar>
+  <main #mainContent hlmSidebarInset id="main-content" tabindex="-1">
+    <app-site-header [menuItems]="menuItems"></app-site-header>
+    <div class="router mx-auto flex w-full max-w-7xl flex-1 flex-col p-4">
+      <router-outlet></router-outlet>
+    </div>
+  </main>
+</div>

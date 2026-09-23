@@ -1,0 +1,72 @@
+# The monolith serves every context, so it needs every context's transports/routing. Each
+# one is declared by the context that owns it; this only gathers them.
+imports:
+    - { resource: '../../../identity/config/packages/messenger.yaml' }
+    - { resource: '../../../file/config/packages/messenger.yaml' }
+    - { resource: '../../../notification/config/packages/messenger.yaml' }
+    - { resource: '../../../organization/config/packages/messenger.yaml' }
+    - { resource: '../../../project/config/packages/messenger.yaml' }
+    - { resource: '../../../runner/config/packages/messenger.yaml' }
+    - { resource: '../../../qualification/config/packages/messenger.yaml' }
+    - { resource: '../../../shift/config/packages/messenger.yaml' }
+    - { resource: '../../../playbook/config/packages/messenger.yaml' }
+
+# Unlike routing (a keyed map that merges cleanly), two things below need restating rather
+# than trusting the imports:
+#
+# - buses.command.bus.middleware is a plain list: whichever import sets it last would
+#   otherwise silently overwrite the other seven contexts' doctrine_transaction wraps. The
+#   monolith runs commands from every context on one command.bus instance, so unlike a
+#   standalone app (which only ever wraps its own single connection) it genuinely needs all
+#   eight stacked.
+#
+# - transports IS keyed by name, but every transport with more than one context touching it
+#   (a real consumer plus one or more producers using the generic encode-only
+#   OutboundMessageSerializer — see app/<context>/config/packages/messenger.yaml) gets
+#   redeclared under the same key by multiple imports, and the whole entry — not just the
+#   changed leaf — is replaced by whichever import lands last. Which one wins is import-order
+#   luck, and a producer's declaration winning silently breaks the monolith's ability to
+#   decode that transport (it never calls decode() itself, so nothing catches this except the
+#   consumer trying to actually read a message). The monolith has every real serializer
+#   available in-process, so it should never use the generic one for anything — restated
+#   explicitly here.
+framework:
+    messenger:
+        buses:
+            command.bus:
+                middleware:
+                    - 'App\Shared\Infrastructure\Telemetry\TraceBoundedContextMiddleware'
+                    - doctrine_transaction: ['identity']
+                    - doctrine_transaction: ['file']
+                    - doctrine_transaction: ['notification']
+                    - doctrine_transaction: ['organization']
+                    - doctrine_transaction: ['project']
+                    - doctrine_transaction: ['runner']
+                    - doctrine_transaction: ['qualification']
+                    - doctrine_transaction: ['shift']
+                    - doctrine_transaction: ['playbook']
+
+        transports:
+            to_notification:
+                dsn: '%env(MESSENGER_TRANSPORT_DSN)%?queue_name=to_notification'
+                serializer: 'App\Notification\Notification\Infrastructure\Bus\NotificationMessageSerializer'
+
+            to_identity:
+                dsn: '%env(MESSENGER_TRANSPORT_DSN)%?queue_name=to_identity'
+                serializer: 'App\Identity\Account\Infrastructure\Bus\IdentityMessageSerializer'
+
+            to_runner:
+                dsn: '%env(MESSENGER_TRANSPORT_DSN)%?queue_name=to_runner'
+                serializer: 'App\Runner\Runner\Infrastructure\Bus\RunnerMessageSerializer'
+
+            to_qualification:
+                dsn: '%env(MESSENGER_TRANSPORT_DSN)%?queue_name=to_qualification'
+                serializer: 'App\Qualification\Qualification\Infrastructure\Bus\QualificationMessageSerializer'
+
+            to_shift:
+                dsn: '%env(MESSENGER_TRANSPORT_DSN)%?queue_name=to_shift'
+                serializer: 'App\Shift\Shift\Infrastructure\Bus\ShiftMessageSerializer'
+
+            to_organization:
+                dsn: '%env(MESSENGER_TRANSPORT_DSN)%?queue_name=to_organization'
+                serializer: 'App\Organization\Organization\Infrastructure\Bus\OrganizationMessageSerializer'
