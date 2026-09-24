@@ -22,7 +22,15 @@ interface ShiftTargetRepositoryInterface
 
     public function findById(ShiftTargetId $id): ?ShiftTarget;
 
-    public function findByMergeRequestUrl(string $mergeRequestUrl): ?ShiftTarget;
+    /**
+     * Targets waiting on a merge request that has not been checked since $checkedBefore,
+     * least recently checked first. The limit caps a single polling pass, so a fleet with
+     * thousands of open merge requests spreads its GitLab calls over several passes
+     * rather than bursting them into one.
+     *
+     * @return ShiftTarget[]
+     */
+    public function findOpenMergeRequestsToCheck(\DateTimeImmutable $checkedBefore, int $limit): array;
 
     /**
      * @return ListResponse<ShiftTarget> ordered by created_at ASC

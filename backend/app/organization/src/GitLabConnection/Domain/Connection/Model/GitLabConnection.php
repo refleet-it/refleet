@@ -42,16 +42,6 @@ class GitLabConnection extends AggregateRoot
     #[ORM\Column(name: 'last_sync_project_count', type: Types::INTEGER, nullable: true)]
     private ?int $lastSyncProjectCount = null;
 
-    /**
-     * Shared secret GitLab must echo back in the X-Gitlab-Token header of every webhook
-     * call, so the receiving endpoint (public, unauthenticated by user session) can tell
-     * a genuine GitLab delivery for this organization apart from anyone else's request.
-     * Generated once at connect() and left untouched by reconnect() — rotating it would
-     * silently break a webhook the user already configured in GitLab.
-     */
-    #[ORM\Column(name: 'webhook_secret', type: Types::STRING, length: 64)]
-    private string $webhookSecret;
-
     private function __construct(
         GitLabConnectionId $id,
         OrganizationId $organizationId,
@@ -80,7 +70,6 @@ class GitLabConnection extends AggregateRoot
         $this->organizationId = $organizationId->asString();
         $this->connectedAt = new \DateTimeImmutable();
         $this->connectedByAccountId = $connectedByAccountId->asString();
-        $this->webhookSecret = \bin2hex(\random_bytes(32));
     }
 
     public static function connect(
@@ -252,15 +241,5 @@ class GitLabConnection extends AggregateRoot
     public function lastSyncProjectCount(): ?int
     {
         return $this->lastSyncProjectCount;
-    }
-
-    public function webhookSecret(): string
-    {
-        return $this->webhookSecret;
-    }
-
-    public function hasWebhookSecret(string $providedSecret): bool
-    {
-        return \hash_equals($this->webhookSecret, $providedSecret);
     }
 }

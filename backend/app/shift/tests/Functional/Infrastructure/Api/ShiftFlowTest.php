@@ -85,7 +85,7 @@ final class ShiftFlowTest extends WebTestCase
         Assert::assertSame('applying_change', $this->decode($client->getResponse())['status'] ?? null);
 
         // Act: runner claims and reports both change jobs — each report carries the merge
-        // request it opened — then GitLab webhook-equivalent "merged" reports complete them
+        // request it opened — then "merged" reports complete them, as the poller would
         for ($i = 0; $i < 2; ++$i) {
             $client->jsonRequest('POST', '/api/runner/jobs/claim', ['runnerId' => 'runner-fleet-01'], $runnerAuthHeader);
             Assert::assertSame(200, $client->getResponse()->getStatusCode());

@@ -37,8 +37,8 @@ services:
     App\Shared\Domain\Service\OrganizationContextProviderInterface:
         alias: App\Organization\Organization\Infrastructure\Service\OrganizationContextProvider
 
-    App\Shared\Domain\Service\GitLabWebhookSecretProviderInterface:
-        alias: App\Organization\GitLabConnection\Infrastructure\Service\GitLabWebhookSecretProvider
+    App\Shared\Domain\Service\MergeRequestStateReaderInterface:
+        alias: App\Organization\GitLabConnection\Infrastructure\Service\GitLabMergeRequestStateReader
 
     # HTTP-backed adapter — see App\Shared\Infrastructure\Http\Internal\HttpApiKeyValidator.
     App\Shared\Domain\Service\ApiKeyValidatorInterface:

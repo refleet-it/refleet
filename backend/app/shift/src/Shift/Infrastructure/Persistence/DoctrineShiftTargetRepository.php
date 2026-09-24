@@ -45,11 +45,23 @@ final readonly class DoctrineShiftTargetRepository implements ShiftTargetReposit
     }
 
     #[\Override]
-    public function findByMergeRequestUrl(string $mergeRequestUrl): ?ShiftTarget
+    public function findOpenMergeRequestsToCheck(\DateTimeImmutable $checkedBefore, int $limit): array
     {
-        return $this->em
+        /** @var ShiftTarget[] $targets */
+        $targets = $this->em
             ->getRepository(ShiftTarget::class)
-            ->findOneBy(['mergeRequestUrl' => $mergeRequestUrl]);
+            ->createQueryBuilder('t')
+            ->where('t.status = :status')
+            ->andWhere('t.mergeRequestUrl IS NOT NULL')
+            ->andWhere('t.mergeRequestCheckedAt IS NULL OR t.mergeRequestCheckedAt < :checkedBefore')
+            ->setParameter('status', ShiftTargetStatusEnum::MERGE_REQUEST_OPEN->value)
+            ->setParameter('checkedBefore', $checkedBefore)
+            ->orderBy('t.mergeRequestCheckedAt', 'ASC')
+            ->setMaxResults($limit)
+            ->getQuery()
+            ->getResult();
+
+        return $targets;
     }
 
     #[\Override]
