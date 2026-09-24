@@ -4,11 +4,8 @@ declare(strict_types=1);
 
 namespace App\Shift\Shift\Application\Command\ReportShiftMergeRequestStatus;
 
-use App\Shift\Shift\Domain\Shift\Exception\InvalidShiftStateTransitionException;
-use App\Shift\Shift\Domain\Shift\Repository\ShiftRepositoryInterface;
+use App\Shift\Shift\Domain\Shift\Service\ShiftCompletion;
 use App\Shift\Shift\Domain\Shift\ValueObject\OrganizationId;
-use App\Shift\Shift\Domain\Shift\ValueObject\ShiftId;
-use App\Shift\Shift\Domain\ShiftTarget\Enum\ShiftTargetStatusEnum;
 use App\Shift\Shift\Domain\ShiftTarget\Exception\ShiftTargetNotFoundException;
 use App\Shift\Shift\Domain\ShiftTarget\Model\ShiftTarget;
 use App\Shift\Shift\Domain\ShiftTarget\Repository\ShiftTargetRepositoryInterface;
@@ -16,15 +13,17 @@ use App\Shift\Shift\Domain\ShiftTarget\ValueObject\ShiftTargetId;
 use Symfony\Component\Messenger\Attribute\AsMessageHandler;
 
 /**
- * Skeleton for a future GitLab webhook integration — currently only reachable through
- * the architect-facing/documented REST endpoint or the GitLab webhook controller.
+ * The architect-facing way to settle a merge request by hand. PollOpenMergeRequestsHandler
+ * settles the same targets from what GitLab actually reports, so this covers what polling
+ * cannot see: a merge request that moved, or one an architect wants written off without
+ * touching GitLab.
  */
 #[AsMessageHandler]
 final readonly class ReportShiftMergeRequestStatusHandler
 {
     public function __construct(
         private ShiftTargetRepositoryInterface $shiftTargets,
-        private ShiftRepositoryInterface $shifts,
+        private ShiftCompletion $shiftCompletion,
     ) {
     }
 
@@ -42,32 +41,7 @@ final readonly class ReportShiftMergeRequestStatusHandler
         $this->shiftTargets->save($target);
 
         if (\in_array($command->status, ['merged', 'closed'], true)) {
-            $this->completeShiftIfFinished($target->shiftId());
-        }
-    }
-
-    private function completeShiftIfFinished(ShiftId $shiftId): void
-    {
-        $remaining = $this->shiftTargets->countByShiftIdAndStatuses(
-            $shiftId,
-            ShiftTargetStatusEnum::inFlightStatuses(),
-        );
-
-        if ($remaining > 0) {
-            return;
-        }
-
-        $shift = $this->shifts->findById($shiftId);
-
-        if (null === $shift) {
-            return;
-        }
-
-        try {
-            $shift->complete();
-            $this->shifts->save($shift);
-        } catch (InvalidShiftStateTransitionException) {
-            // Possible race with a parallel cancel() — safe to ignore, shift already left this phase.
+            $this->shiftCompletion->completeIfFinished($target->shiftId());
         }
     }
 

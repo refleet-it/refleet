@@ -1,6 +1,6 @@
-# Bundle is enabled but no #[AsSchedule] provider exists yet in src/ - this is
-# intentionally a no-op today, kept ready for the first recurring in-app job
-# (e.g. periodic cleanup) rather than dead config left behind by mistake.
+# Recurring in-app jobs. Each schedule is declared with #[AsSchedule] in the context that
+# owns it - App\Shift\Shift\Infrastructure\Scheduler\ShiftSchedule is the first - and reaches
+# that context's worker as an extra transport on its messenger:consume (see compose.yml).
 framework:
     scheduler:
         enabled: true

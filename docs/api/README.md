@@ -62,8 +62,7 @@ expire after ten minutes. See [installing a runner](../runner/installation.md).
 
 ### Open without a token
 
-`/api/health`, `/api/metrics`, `/api/client-errors`, `/api/doc`, the GitLab webhook, invitation
-acceptance, the two CLI-login endpoints above, and the sign-in, registration, password-reset and
+`/api/health`, `/api/metrics`, `/api/client-errors`, `/api/doc`, invitation acceptance, the two CLI-login endpoints above, and the sign-in, registration, password-reset and
 email-verification endpoints under `/api/identity`. Everything else under `/api` requires a fully authenticated request.
 
 ## The resources
@@ -78,7 +77,8 @@ caller's organisation, or null if they have none.
 **GitLab connection** — `/api/gitlab/connection` connects (with a pasted access token), syncs
 and disconnects an organisation's GitLab account; `/api/gitlab/connection/oauth/start` and
 `/oauth/complete` do the same through gitlab.com's OAuth authorization-code flow, the default in
-the UI. `/api/webhooks/gitlab/{organizationId}` receives merge request events.
+the UI. Merge request status is not pushed to Refleet: the backend polls GitLab for the merge
+requests it is waiting on, so no webhook has to be registered or reachable.
 
 **Projects** — `/api/projects` lists and registers the repositories an organisation works on.
 

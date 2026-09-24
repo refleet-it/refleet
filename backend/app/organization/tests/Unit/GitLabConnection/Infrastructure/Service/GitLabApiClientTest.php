@@ -102,159 +102,119 @@ final class GitLabApiClientTest extends TestCase
     }
 
     #[Test]
-    public function creates_a_project_webhook_when_none_matches_the_url_yet(): void
+    public function reads_merge_request_states_for_the_requested_iids(): void
     {
         // Arrange
-        $requests = [];
+        $requestedUrl = null;
         $httpClient = new MockHttpClient(
-            static function (string $method, string $url, array $options) use (&$requests): MockResponse {
-                $requests[] = [$method, $url, $options];
+            static function (string $method, string $url) use (&$requestedUrl): MockResponse {
+                $requestedUrl = $url;
 
-                return 'GET' === $method
-                    ? new MockResponse('[]', ['http_code' => 200])
-                    : new MockResponse(\json_encode(['id' => 5, 'url' => 'https://refleet.example/webhooks/gitlab/org-1']), ['http_code' => 201]);
+                return new MockResponse(\json_encode([
+                    ['iid' => 7, 'state' => 'merged'],
+                    ['iid' => 9, 'state' => 'opened'],
+                ]), ['http_code' => 200]);
             },
         );
         $client = new GitLabApiClient($httpClient);
 
         // Act
-        $client->ensureProjectWebhook('https://gitlab.com', 'token', '42', 'https://refleet.example/webhooks/gitlab/org-1', 'the-secret');
+        $states = $client->listMergeRequestStates('https://gitlab.com', 'token', '42', ['7', '9']);
 
         // Assert
-        Assert::assertCount(2, $requests);
-        Assert::assertSame('GET', $requests[0][0]);
-        Assert::assertSame('POST', $requests[1][0]);
-        Assert::assertSame('https://gitlab.com/api/v4/projects/42/hooks', $requests[1][1]);
-        Assert::assertSame(
-            ['url' => 'https://refleet.example/webhooks/gitlab/org-1', 'token' => 'the-secret', 'merge_requests_events' => true, 'push_events' => false, 'enable_ssl_verification' => true],
-            \json_decode((string) $requests[1][2]['body'], true, flags: \JSON_THROW_ON_ERROR),
-        );
+        Assert::assertSame(['7' => 'merged', '9' => 'opened'], $states);
+        Assert::assertStringStartsWith('https://gitlab.com/api/v4/projects/42/merge_requests?', (string) $requestedUrl);
+        Assert::assertStringContainsString('iids[]=7', \rawurldecode((string) $requestedUrl));
+        Assert::assertStringContainsString('iids[]=9', \rawurldecode((string) $requestedUrl));
     }
 
     #[Test]
-    public function does_not_create_a_duplicate_webhook_when_one_already_points_at_the_same_url(): void
+    public function asks_for_nothing_when_a_project_has_no_merge_requests_to_check(): void
     {
         // Arrange
-        $httpClient = new MockHttpClient([
-            new MockResponse(\json_encode([['id' => 9, 'url' => 'https://refleet.example/webhooks/gitlab/org-1']]), ['http_code' => 200]),
-        ]);
+        $httpClient = new MockHttpClient([]);
         $client = new GitLabApiClient($httpClient);
 
         // Act
-        $client->ensureProjectWebhook('https://gitlab.com', 'token', '42', 'https://refleet.example/webhooks/gitlab/org-1', 'the-secret');
+        $states = $client->listMergeRequestStates('https://gitlab.com', 'token', '42', []);
 
         // Assert
-        Assert::assertSame(1, $httpClient->getRequestsCount());
+        Assert::assertSame([], $states);
+        Assert::assertSame(0, $httpClient->getRequestsCount());
     }
 
     #[Test]
-    public function throws_when_registering_the_webhook_is_rejected(): void
+    public function splits_a_long_list_of_iids_across_several_calls(): void
     {
         // Arrange
-        $httpClient = new MockHttpClient([
-            new MockResponse('[]', ['http_code' => 200]),
-            new MockResponse('', ['http_code' => 403]),
-        ]);
+        $iids = \array_map(static fn (int $n): string => (string) $n, \range(1, 120));
+        $httpClient = new MockHttpClient(
+            static fn (): MockResponse => new MockResponse('[]', ['http_code' => 200]),
+        );
+        $client = new GitLabApiClient($httpClient);
+
+        // Act
+        $client->listMergeRequestStates('https://gitlab.com', 'token', '42', $iids);
+
+        // Assert
+        Assert::assertSame(3, $httpClient->getRequestsCount());
+    }
+
+    #[Test]
+    public function throws_when_reading_merge_request_states_is_rejected(): void
+    {
+        // Arrange
+        $httpClient = new MockHttpClient([new MockResponse('', ['http_code' => 401])]);
         $client = new GitLabApiClient($httpClient);
 
         // Assert
         $this->expectException(InvalidGitLabCredentialsException::class);
 
         // Act
-        $client->ensureProjectWebhook('https://gitlab.com', 'token', '42', 'https://refleet.example/webhooks/gitlab/org-1', 'the-secret');
+        $client->listMergeRequestStates('https://gitlab.com', 'token', '42', ['7']);
     }
 
     #[Test]
-    public function creates_a_group_webhook_when_none_matches_the_url_yet(): void
+    public function removes_only_the_group_webhooks_pointing_at_the_url(): void
     {
         // Arrange
         $requests = [];
         $httpClient = new MockHttpClient(
-            static function (string $method, string $url, array $options) use (&$requests): MockResponse {
-                $requests[] = [$method, $url, $options];
+            static function (string $method, string $url) use (&$requests): MockResponse {
+                $requests[] = [$method, $url];
 
                 return 'GET' === $method
-                    ? new MockResponse('[]', ['http_code' => 200])
-                    : new MockResponse(\json_encode(['id' => 5, 'url' => 'https://refleet.example/webhooks/gitlab/org-1']), ['http_code' => 201]);
+                    ? new MockResponse(\json_encode([
+                        ['id' => 3, 'url' => 'https://ci.example/hook'],
+                        ['id' => 7, 'url' => 'https://refleet.example/webhooks/gitlab/org-1'],
+                    ]), ['http_code' => 200])
+                    : new MockResponse('', ['http_code' => 204]);
             },
         );
         $client = new GitLabApiClient($httpClient);
 
         // Act
-        $inPlace = $client->ensureGroupWebhook('https://gitlab.com', 'token', '99', 'https://refleet.example/webhooks/gitlab/org-1', 'the-secret');
+        $client->removeGroupWebhook('https://gitlab.com', 'token', '99', 'https://refleet.example/webhooks/gitlab/org-1');
 
         // Assert
-        Assert::assertTrue($inPlace);
-        Assert::assertCount(2, $requests);
-        Assert::assertSame('https://gitlab.com/api/v4/groups/99/hooks', $requests[0][1]);
-        Assert::assertSame('POST', $requests[1][0]);
-        Assert::assertSame('https://gitlab.com/api/v4/groups/99/hooks', $requests[1][1]);
-        Assert::assertSame(
-            ['url' => 'https://refleet.example/webhooks/gitlab/org-1', 'token' => 'the-secret', 'merge_requests_events' => true, 'push_events' => false, 'enable_ssl_verification' => true],
-            \json_decode((string) $requests[1][2]['body'], true, flags: \JSON_THROW_ON_ERROR),
-        );
+        Assert::assertSame([
+            ['GET', 'https://gitlab.com/api/v4/groups/99/hooks'],
+            ['DELETE', 'https://gitlab.com/api/v4/groups/99/hooks/7'],
+        ], $requests);
     }
 
     #[Test]
-    public function reports_an_existing_group_webhook_without_creating_another(): void
+    public function leaves_group_webhooks_alone_when_gitlab_hides_the_endpoint(): void
     {
         // Arrange
-        $httpClient = new MockHttpClient([
-            new MockResponse(\json_encode([['id' => 9, 'url' => 'https://refleet.example/webhooks/gitlab/org-1']]), ['http_code' => 200]),
-        ]);
+        $httpClient = new MockHttpClient([new MockResponse('', ['http_code' => 404])]);
         $client = new GitLabApiClient($httpClient);
 
         // Act
-        $inPlace = $client->ensureGroupWebhook('https://gitlab.com', 'token', '99', 'https://refleet.example/webhooks/gitlab/org-1', 'the-secret');
+        $client->removeGroupWebhook('https://gitlab.com', 'token', '99', 'https://refleet.example/webhooks/gitlab/org-1');
 
         // Assert
-        Assert::assertTrue($inPlace);
         Assert::assertSame(1, $httpClient->getRequestsCount());
-    }
-
-    #[Test]
-    public function reports_group_webhooks_as_unavailable_when_gitlab_hides_the_endpoint(): void
-    {
-        // Arrange
-        $httpClient = new MockHttpClient([new MockResponse('{"message":"404 Not Found"}', ['http_code' => 404])]);
-        $client = new GitLabApiClient($httpClient);
-
-        // Act
-        $inPlace = $client->ensureGroupWebhook('https://gitlab.com', 'token', '99', 'https://refleet.example/webhooks/gitlab/org-1', 'the-secret');
-
-        // Assert
-        Assert::assertFalse($inPlace);
-    }
-
-    #[Test]
-    public function reports_group_webhooks_as_unavailable_when_gitlab_forbids_creating_one(): void
-    {
-        // Arrange
-        $httpClient = new MockHttpClient([
-            new MockResponse('[]', ['http_code' => 200]),
-            new MockResponse('{"message":"403 Forbidden"}', ['http_code' => 403]),
-        ]);
-        $client = new GitLabApiClient($httpClient);
-
-        // Act
-        $inPlace = $client->ensureGroupWebhook('https://gitlab.com', 'token', '99', 'https://refleet.example/webhooks/gitlab/org-1', 'the-secret');
-
-        // Assert
-        Assert::assertFalse($inPlace);
-    }
-
-    #[Test]
-    public function throws_when_the_group_webhook_endpoint_fails_for_another_reason(): void
-    {
-        // Arrange
-        $httpClient = new MockHttpClient([new MockResponse('', ['http_code' => 500])]);
-        $client = new GitLabApiClient($httpClient);
-
-        // Assert
-        $this->expectException(InvalidGitLabCredentialsException::class);
-
-        // Act
-        $client->ensureGroupWebhook('https://gitlab.com', 'token', '99', 'https://refleet.example/webhooks/gitlab/org-1', 'the-secret');
     }
 
     #[Test]

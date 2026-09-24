@@ -293,7 +293,7 @@ services:
         environment:
             <<: *backend-env
             APP_ID: shift
-        command: php bin/console messenger:consume to_shift --time-limit=3600 --memory-limit=128M
+        command: php bin/console messenger:consume to_shift scheduler_shift --time-limit=3600 --memory-limit=128M
         networks:
             - network-app
         depends_on:

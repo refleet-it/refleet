@@ -5,7 +5,6 @@ security:
 
     access_control:
         - { path: ^/internal, roles: IS_AUTHENTICATED_FULLY }
-        - { path: ^/api/webhooks/gitlab, roles: PUBLIC_ACCESS }
         - { path: ^/api/health, roles: PUBLIC_ACCESS }
         - { path: ^/api/instance, roles: PUBLIC_ACCESS }
         - { path: ^/api/client-errors, roles: PUBLIC_ACCESS }

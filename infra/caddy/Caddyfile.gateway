@@ -83,9 +83,6 @@ http://refleet.local, http://localhost, http://caddy-gateway {
     handle /api/shifts* {
         reverse_proxy backend-shift:80
     }
-    handle /api/webhooks/gitlab/* {
-        reverse_proxy backend-shift:80
-    }
 
     # File
     handle /api/files* {

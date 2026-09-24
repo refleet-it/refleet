@@ -11,8 +11,7 @@ authorize Refleet, and sends you back connected. Nothing to copy — GitLab hand
 short-lived access token and a refresh token, both stored encrypted; the access token is refreshed
 on demand and only ever handed to your runners, and you can revoke the whole thing from your
 GitLab profile under *Applications* at any time. Reconnecting (or connecting from another owner
-account) replaces the tokens; the group's webhook secret is kept so hooks you already configured
-keep working.
+account) replaces the tokens.
 
 For self-managed GitLab, use **Self-hosted GitLab? Use an access token instead**: create a group
 access token with the Developer role and the `api` scope and paste it together with your instance
@@ -103,7 +102,10 @@ merged target is final.
 
 The shift goes **Draft** → **Applying Change** → **Completed**, or **Cancelled** if you stop it.
 Per project it runs further than you might expect: Refleet does not stop at opening the merge
-request, it keeps watching it.
+request, it keeps watching it. Every few minutes it asks GitLab what happened to the merge
+requests it is still waiting on, so merging or closing one in GitLab settles the target here on
+its own — there is nothing to configure and nothing in your GitLab has to be able to reach
+Refleet.
 
 | Target status | Meaning |
 | --- | --- |
