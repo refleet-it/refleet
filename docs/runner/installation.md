@@ -12,7 +12,7 @@ and the npm package run exactly that code; the image only adds the two agent CLI
 
 Every runner needs two values:
 
-- `REFLEET_API_URL` — e.g. `https://refleet.it/api`
+- `REFLEET_API_URL` — e.g. `https://api.refleet.it/api`, which is what `login` defaults to
 - `REFLEET_API_KEY` — an API key created through `POST /api/identity/api-keys`
 
 There are two ways to supply them, and the runner prefers the first:
@@ -55,7 +55,7 @@ commit SHA it was built from. Pin the SHA in anything you care about; `latest` m
 
 ```bash
 docker run -d --restart unless-stopped \
-  -e REFLEET_API_URL=https://refleet.it/api \
+  -e REFLEET_API_URL=https://api.refleet.it/api \
   -e REFLEET_API_KEY=… \
   -e RUNNER_NAME=prod-runner-01 \
   -e ANTHROPIC_API_KEY=… \

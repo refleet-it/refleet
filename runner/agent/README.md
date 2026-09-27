@@ -57,7 +57,7 @@ After=network-online.target
 
 [Service]
 ExecStart=/usr/bin/env refleet run
-Environment=REFLEET_API_URL=https://refleet.it/api
+Environment=REFLEET_API_URL=https://api.refleet.it/api
 Environment=REFLEET_API_KEY=…
 Environment=ANTHROPIC_API_KEY=…
 Restart=always

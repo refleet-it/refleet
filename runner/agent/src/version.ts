@@ -1,7 +1,11 @@
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 
-/** What package.json says — CI stamps it (`<major>.<minor>.<pipeline iid>`), a checkout carries the bare series. */
+/**
+ * What package.json says. The release workflow stamps `<major>.<minor>.<github run number>` at
+ * publish time, so a checkout reports the bare series with patch 0 while an installed copy
+ * reports a real patch — bump the minor in package.json to open a new series.
+ */
 export function runnerVersion(): string {
   try {
     const pkg = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8')) as { version?: unknown };
