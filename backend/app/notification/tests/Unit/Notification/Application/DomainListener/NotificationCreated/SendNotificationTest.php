@@ -106,11 +106,9 @@ final class SendNotificationTest extends TestCase
         $this->notifications
             ->expects($this->once())
             ->method('save')
-            ->with($this->callback(static function (Notification $saved): bool {
+            ->willReturnCallback(static function (Notification $saved): void {
                 Assert::assertSame(NotificationStatusEnum::SENT, $saved->status());
-
-                return true;
-            }));
+            });
 
         $this->handlerLogger
             ->expects($this->once())
@@ -157,11 +155,9 @@ final class SendNotificationTest extends TestCase
         $this->notifications
             ->expects($this->once())
             ->method('save')
-            ->with($this->callback(static function (Notification $saved): bool {
+            ->willReturnCallback(static function (Notification $saved): void {
                 Assert::assertSame(NotificationStatusEnum::FAILED, $saved->status());
-
-                return true;
-            }));
+            });
 
         $this->handlerLogger
             ->expects($this->once())
@@ -252,11 +248,9 @@ final class SendNotificationTest extends TestCase
         $this->notifications
             ->expects($this->once())
             ->method('save')
-            ->with($this->callback(static function (Notification $saved): bool {
+            ->willReturnCallback(static function (Notification $saved): void {
                 Assert::assertSame(NotificationStatusEnum::FAILED, $saved->status());
-
-                return true;
-            }));
+            });
 
         $this->handlerLogger
             ->expects($this->once())

@@ -26,6 +26,7 @@ $finder = PhpCsFixer\Finder::create()
     ])
     ->ignoreVCSIgnored(true)
     ->name('*.php')
+    ->notPath('#^reference\.php$#')
     ->notPath('vendor')
     ->notPath('node_modules')
     ->notPath('.git')
@@ -39,6 +40,9 @@ return $config
     ->setRules([
         '@Symfony' => true,
         '@Symfony:risky' => true,
+        // Symfony's own code does not declare strict types, so @Symfony:risky strips the
+        // declaration since php-cs-fixer 3.95. This codebase relies on it everywhere.
+        'declare_strict_types' => ['strategy' => 'enforce'],
         'method_argument_space' => ['on_multiline' => 'ensure_fully_multiline', 'attribute_placement' => 'standalone'],
         'is_null' => true,
         'no_superfluous_elseif' => true,

@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 $appId = $_SERVER['APP_ID'] ?? $_ENV['APP_ID'] ?? 'monolith';
 $preload = \dirname(__DIR__).'/var/cache/'.$appId.'/prod/App_KernelProdContainer.preload.php';
 
