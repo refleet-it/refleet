@@ -109,14 +109,12 @@ final class RegisterHandlerTest extends TestCase
         $this->accounts
             ->expects($this->once())
             ->method('save')
-            ->with($this->callback(static function (Account $account) use (&$capturedAccount, $command, $expectedHash): bool {
+            ->willReturnCallback(static function (Account $account) use (&$capturedAccount, $command, $expectedHash): void {
                 $capturedAccount = $account;
                 Assert::assertSame(\mb_strtolower($command->email), $account->email());
                 Assert::assertSame($expectedHash, $account->passwordHash());
                 Assert::assertSame($command->role, $account->role());
-
-                return true;
-            }));
+            });
 
         $matcher = $this->exactly(2);
         $this->logger
@@ -159,11 +157,9 @@ final class RegisterHandlerTest extends TestCase
         $this->accounts
             ->expects($this->once())
             ->method('save')
-            ->with($this->callback(static function (Account $account) use (&$capturedAccount): bool {
+            ->willReturnCallback(static function (Account $account) use (&$capturedAccount): void {
                 $capturedAccount = $account;
-
-                return true;
-            }));
+            });
 
         $this->logger->method('info');
 

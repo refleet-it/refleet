@@ -56,11 +56,9 @@ final class ConnectGitLabHandlerTest extends TestCase
         $this->connections
             ->expects($this->once())
             ->method('save')
-            ->with($this->callback(static function (GitLabConnection $connection) use (&$savedConnection): bool {
+            ->willReturnCallback(static function (GitLabConnection $connection) use (&$savedConnection): void {
                 $savedConnection = $connection;
-
-                return true;
-            }));
+            });
 
         // Act
         $result = ($this->handler)(new ConnectGitLabCommand(

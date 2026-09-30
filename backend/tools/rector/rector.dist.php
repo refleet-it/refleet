@@ -25,9 +25,11 @@ return RectorConfig::configure()
         phpunitCodeQuality: true,
     )->withSets([
         Rector\PHPUnit\Set\PHPUnitSetList::ANNOTATIONS_TO_ATTRIBUTES,
-        Rector\PHPUnit\Set\PHPUnitSetList::PHPUNIT_100,
         Rector\PHPUnit\Set\PHPUnitSetList::PHPUNIT_CODE_QUALITY,
-        Rector\PHPUnit\Set\PHPUnitSetList::PHPUNIT_120,
+        // Rector 2.6 dropped the per-version sets (PHPUNIT_100, PHPUNIT_120, …) in favour of
+        // one set that reads the PHPUnit constraint out of composer.json and applies the
+        // matching rules itself.
+        Rector\PHPUnit\Set\PHPUnitSetList::COMPOSER_BASED,
     ])
     ->withRules([
         AddVoidReturnTypeWhereNoReturnRector::class,

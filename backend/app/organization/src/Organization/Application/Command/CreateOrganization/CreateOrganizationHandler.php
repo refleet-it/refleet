@@ -28,12 +28,10 @@ final readonly class CreateOrganizationHandler
         $accountId = AccountId::fromString($command->accountId);
         $employee = $this->employeeRepository->findByAccountId($accountId);
 
-        if (null === $employee) {
-            // The account-created listener mirrors every account into an Employee row, but
-            // accounts predating that listener (or seeded directly, e.g. fixtures) may not
-            // have one yet. Creating an organization is a fine time to backfill it.
-            $employee = Employee::mirror($accountId, $command->email);
-        }
+        // The account-created listener mirrors every account into an Employee row, but
+        // accounts predating that listener (or seeded directly, e.g. fixtures) may not
+        // have one yet. Creating an organization is a fine time to backfill it.
+        $employee ??= Employee::mirror($accountId, $command->email);
 
         if ($employee->isInOrganization()) {
             throw new AccountAlreadyBelongsToOrganizationException();

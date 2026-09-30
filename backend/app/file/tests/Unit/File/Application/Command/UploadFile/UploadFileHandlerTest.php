@@ -72,7 +72,7 @@ final class UploadFileHandlerTest extends TestCase
         $this->fileRepository
             ->expects($this->once())
             ->method('save')
-            ->with($this->callback(function (File $file) use ($fileId, $fileName, $originalName, $mimeType, $size, $description, $uploaderId, $tenantId, $expectedPath): bool {
+            ->willReturnCallback(function (File $file) use ($fileId, $fileName, $originalName, $mimeType, $size, $description, $uploaderId, $tenantId, $expectedPath): void {
                 $this->assertTrue($file->id()->equals($fileId));
                 $this->assertSame($fileName->asString(), $file->name()->asString());
                 $this->assertSame($originalName->asString(), $file->originalName()->asString());
@@ -83,9 +83,7 @@ final class UploadFileHandlerTest extends TestCase
                 $this->assertSame($tenantId->asString(), $file->tenantId()?->asString());
 
                 $this->assertSame($expectedPath, $file->path());
-
-                return true;
-            }));
+            });
 
         // Expect async image processing for image files
         $this->messageBus
@@ -143,7 +141,7 @@ final class UploadFileHandlerTest extends TestCase
         $this->fileRepository
             ->expects($this->once())
             ->method('save')
-            ->with($this->callback(function (File $file) use ($fileId, $fileName, $originalName, $mimeType, $size, $uploaderId, $expectedPath): bool {
+            ->willReturnCallback(function (File $file) use ($fileId, $fileName, $originalName, $mimeType, $size, $uploaderId, $expectedPath): void {
                 $this->assertTrue($file->id()->equals($fileId));
                 $this->assertSame($fileName->asString(), $file->name()->asString());
                 $this->assertSame($originalName->asString(), $file->originalName()->asString());
@@ -154,9 +152,7 @@ final class UploadFileHandlerTest extends TestCase
                 $this->assertNotInstanceOf(TenantId::class, $file->tenantId());
 
                 $this->assertSame($expectedPath, $file->path());
-
-                return true;
-            }));
+            });
 
         // No async image processing for non-image files
         $this->messageBus

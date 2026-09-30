@@ -16,10 +16,10 @@ final readonly class DefineShiftChangeRequest
     public function __construct(
         #[Assert\NotBlank]
         #[Assert\Choice(choices: ['ai'])]
-        #[OA\Property(type: 'string', enum: ['ai'], example: 'ai')]
+        #[OA\Property(type: 'string', example: 'ai', enum: ['ai'])]
         public string $changeMode = 'ai',
         #[Assert\Choice(choices: ['claude', 'kiro'])]
-        #[OA\Property(description: 'Which agent CLI runs the prompt ("claude" or "kiro"), defaulting to "claude".', type: 'string', enum: ['claude', 'kiro'], example: 'claude')]
+        #[OA\Property(description: 'Which agent CLI runs the prompt ("claude" or "kiro"), defaulting to "claude".', type: 'string', example: 'claude', enum: ['claude', 'kiro'])]
         public ?string $changeEngine = null,
         #[Assert\NotBlank]
         #[OA\Property(type: 'string', example: 'Bump acme/legacy-lib to ^3.0 in composer.json and run composer update acme/legacy-lib.')]

@@ -34,11 +34,9 @@ final class RegisterProjectHandlerTest extends TestCase
         $this->projects
             ->expects($this->once())
             ->method('save')
-            ->with($this->callback(static function (Project $project) use (&$savedProject): bool {
+            ->willReturnCallback(static function (Project $project) use (&$savedProject): void {
                 $savedProject = $project;
-
-                return true;
-            }));
+            });
 
         // Act
         $result = ($this->handler)(new RegisterProjectCommand(

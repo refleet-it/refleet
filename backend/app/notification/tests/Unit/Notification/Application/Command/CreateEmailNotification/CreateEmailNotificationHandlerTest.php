@@ -53,7 +53,7 @@ final class CreateEmailNotificationHandlerTest extends TestCase
         $this->notifications
             ->expects($this->once())
             ->method('save')
-            ->with($this->callback(static function (Notification $notification) use ($id, $email, $subject, $body): bool {
+            ->willReturnCallback(static function (Notification $notification) use ($id, $email, $subject, $body): void {
                 // Assert entity fields
                 Assert::assertSame($id->asString(), $notification->id()->asString());
                 Assert::assertSame($email, $notification->recipient()->value());
@@ -73,9 +73,7 @@ final class CreateEmailNotificationHandlerTest extends TestCase
                 Assert::assertSame($subject, $event->subject());
                 Assert::assertSame($body, $event->body());
                 Assert::assertSame(NotificationTypeEnum::EMAIL, $event->type());
-
-                return true;
-            }));
+            });
 
         // Act
         ($this->handler)($command);

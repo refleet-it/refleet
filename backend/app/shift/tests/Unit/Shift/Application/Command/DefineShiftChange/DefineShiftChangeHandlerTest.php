@@ -39,12 +39,10 @@ final class DefineShiftChangeHandlerTest extends TestCase
         $shift
             ->expects($this->once())
             ->method('defineChange')
-            ->with($this->callback(static function (ChangeCriteria $criteria): bool {
+            ->willReturnCallback(static function (ChangeCriteria $criteria): void {
                 Assert::assertSame('Bump acme/legacy-lib to ^3.0', $criteria->prompt());
                 Assert::assertSame(CriteriaEngineEnum::KIRO, $criteria->engine());
-
-                return true;
-            }));
+            });
 
         $this->shifts->method('findByIdForOrganization')->willReturn($shift);
         $this->shifts->expects($this->once())->method('save')->with($shift);
@@ -71,12 +69,10 @@ final class DefineShiftChangeHandlerTest extends TestCase
         $shift
             ->expects($this->once())
             ->method('defineChange')
-            ->with($this->callback(static function (ChangeCriteria $criteria): bool {
+            ->willReturnCallback(static function (ChangeCriteria $criteria): void {
                 Assert::assertSame('Apply the migration', $criteria->prompt());
                 Assert::assertSame('claude-haiku-4-5-20251001', $criteria->model());
-
-                return true;
-            }));
+            });
 
         $this->shifts->method('findByIdForOrganization')->willReturn($shift);
         $this->shifts->expects($this->once())->method('save')->with($shift);
