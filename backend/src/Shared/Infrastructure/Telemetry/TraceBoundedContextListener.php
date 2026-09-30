@@ -20,7 +20,7 @@ final readonly class TraceBoundedContextListener
         $controller = $event->getController();
 
         if (\is_array($controller)) {
-            $controller = $controller[0] ?? null;
+            $controller = $controller[0];
         }
 
         $class = match (true) {
