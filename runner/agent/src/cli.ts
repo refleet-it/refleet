@@ -5,11 +5,53 @@ import { clearStoredConfig, loadStoredConfig, resolveFleetConfig } from './confi
 import { listApiKeys, revokeApiKey } from './backend-client.js';
 import { FleetStartupError, fleetOptionsFromEnv, runFleet } from './fleet/loop.js';
 import { UPDATE_EXIT_CODE } from './fleet/update.js';
-import { parseLoginArgs, runLogin } from './login.js';
+import { DEFAULT_API_URL, parseLoginArgs, runLogin } from './login.js';
 import { runnerVersion } from './version.js';
 
 function errorMessage(err: unknown): string {
   return err instanceof Error ? err.message : String(err);
+}
+
+/**
+ * The one list of commands: main's switch dispatches these and usageText renders them, so a
+ * command cannot exist undocumented — which is what a hand-maintained usage string drifts into.
+ */
+export const COMMANDS = [
+  ['run', 'Claim jobs and work them until stopped'],
+  ['login', 'Authorize in a browser and store an API key'],
+  ['logout', 'Revoke the stored API key and forget it'],
+  ['whoami', 'Show the credentials in effect and check they still work'],
+  ['version', 'Print the runner version'],
+  ['help', 'Show this help'],
+] as const;
+
+export function usageText(): string {
+  const width = Math.max(...COMMANDS.map(([name]) => name.length));
+  const commands = COMMANDS.map(([name, summary]) => `  ${name.padEnd(width)}  ${summary}`).join('\n');
+
+  return `refleet ${runnerVersion()} — a Refleet runner: claims modernisation jobs and works them with Claude Code or Kiro.
+
+Usage: refleet <command> [options]
+
+Commands:
+${commands}
+
+Options for login:
+  --api-url <url>  Instance to authorize against (default: ${DEFAULT_API_URL})
+  --no-browser     Only print the link, for SSH sessions and machines without a desktop
+
+Credentials, set directly or obtained by 'refleet login':
+  REFLEET_API_URL  Instance API, e.g. ${DEFAULT_API_URL}
+  REFLEET_API_KEY  API key for that instance
+
+Also read from the environment:
+  RUNNER_NAME        How this runner registers (default: this machine's short hostname)
+  ANTHROPIC_API_KEY  Required for jobs that run Claude Code
+  KIRO_API_KEY       Required for jobs that run Kiro
+
+'run' needs git and at least one agent CLI — claude or kiro-cli — on PATH, and registers only
+the engines it finds. Full guide: docs/runner/installation.md
+`;
 }
 
 /** Revokes the locally saved key on the backend (best-effort) and clears the local config. */
@@ -114,9 +156,20 @@ async function main(): Promise<void> {
     case '-v':
       process.stdout.write(`${runnerVersion()}\n`);
       return;
+    case 'help':
+    case '--help':
+    case '-h':
+      process.stdout.write(usageText());
+      return;
+    case undefined:
+      // Asked for nothing: the help belongs on stderr and the exit non-zero, so a supervisor
+      // or a script that forgot the command does not read it as a successful run.
+      process.stderr.write(usageText());
+      process.exitCode = 1;
+      return;
     default:
-      process.stderr.write(`refleet: unknown command ${JSON.stringify(command ?? '')}\n`);
-      process.stderr.write('Usage: refleet <login [--api-url <url>] [--no-browser]|logout|whoami|run|version>\n');
+      process.stderr.write(`refleet: unknown command ${JSON.stringify(command)}\n\n`);
+      process.stderr.write(usageText());
       process.exitCode = 1;
   }
 }
