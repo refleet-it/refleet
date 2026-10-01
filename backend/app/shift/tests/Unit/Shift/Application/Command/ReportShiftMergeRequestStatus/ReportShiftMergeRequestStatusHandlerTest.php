@@ -8,6 +8,7 @@ use App\Shift\Shift\Application\Command\ReportShiftMergeRequestStatus\ReportShif
 use App\Shift\Shift\Application\Command\ReportShiftMergeRequestStatus\ReportShiftMergeRequestStatusHandler;
 use App\Shift\Shift\Domain\Shift\Model\Shift;
 use App\Shift\Shift\Domain\Shift\Repository\ShiftRepositoryInterface;
+use App\Shift\Shift\Domain\Shift\Service\ShiftCompletion;
 use App\Shift\Shift\Domain\Shift\ValueObject\OrganizationId;
 use App\Shift\Shift\Domain\Shift\ValueObject\ShiftId;
 use App\Shift\Shift\Domain\ShiftTarget\Exception\ShiftTargetNotFoundException;
@@ -150,6 +151,9 @@ final class ReportShiftMergeRequestStatusHandlerTest extends TestCase
     {
         $this->shiftTargets = $this->createMock(ShiftTargetRepositoryInterface::class);
         $this->shifts = $this->createMock(ShiftRepositoryInterface::class);
-        $this->handler = new ReportShiftMergeRequestStatusHandler($this->shiftTargets, $this->shifts);
+        $this->handler = new ReportShiftMergeRequestStatusHandler(
+            $this->shiftTargets,
+            new ShiftCompletion($this->shifts, $this->shiftTargets),
+        );
     }
 }

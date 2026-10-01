@@ -55,7 +55,7 @@ final class GetGitLabConnectionControllerTest extends TestCase
     }
 
     #[Test]
-    public function does_not_leak_the_webhook_secret_in_the_response(): void
+    public function exposes_only_the_connection_fields_the_settings_page_needs(): void
     {
         // Arrange
         $this->stubOrganization();
@@ -68,7 +68,6 @@ final class GetGitLabConnectionControllerTest extends TestCase
             lastSyncStatus: 'never_synced',
             lastSyncError: null,
             lastSyncProjectCount: null,
-            webhookSecret: 'super-secret-token',
             authMethod: 'access_token',
         );
 
@@ -85,8 +84,7 @@ final class GetGitLabConnectionControllerTest extends TestCase
         $payload = \json_decode((string) $response->getContent(), true, flags: \JSON_THROW_ON_ERROR);
         Assert::assertTrue($payload['connected']);
         Assert::assertSame('acme-corp', $payload['groupPath']);
-        Assert::assertArrayNotHasKey('webhookUrl', $payload);
-        Assert::assertArrayNotHasKey('webhookSecret', $payload);
+        Assert::assertArrayNotHasKey('accessToken', $payload);
         Assert::assertSame('access_token', $payload['authMethod']);
     }
 

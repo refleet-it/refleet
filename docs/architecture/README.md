@@ -70,7 +70,7 @@ implements it and the wiring lives in that context's `services.yaml`.
 | `UserEmailProviderInterface`       | Identity       |
 | `InvitedAccountRegistrarInterface` | Identity       |
 | `OrganizationContextProviderInterface` | Organization |
-| `GitLabWebhookSecretProviderInterface` | Organization |
+| `MergeRequestStateReaderInterface`  | Organization   |
 | `ProjectCatalogInterface`          | Project        |
 | `ProjectRegistryInterface`         | Project        |
 | `QualifiedProjectsInterface`       | Qualification  |

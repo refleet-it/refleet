@@ -44,7 +44,7 @@ final class SyncGitLabProjectsHandlerTest extends TestCase
     private SyncGitLabProjectsHandler $handler;
 
     #[Test]
-    public function syncs_every_project_and_falls_back_to_project_webhooks_when_the_group_refuses_one(): void
+    public function syncs_every_project_and_clears_the_webhooks_earlier_versions_registered(): void
     {
         // Arrange
         $this->connections->method('findByOrganizationId')->willReturn($this->connection);
@@ -74,21 +74,21 @@ final class SyncGitLabProjectsHandlerTest extends TestCase
 
         $this->connections->expects($this->once())->method('save')->with($this->identicalTo($this->connection));
 
-        $this->gitLabApiClient->method('ensureGroupWebhook')->willReturn(false);
-        $this->gitLabApiClient->expects($this->never())->method('removeProjectWebhook');
+        $webhookUrl = 'http://localhost/api/webhooks/gitlab/'.$this->connection->organizationId()->asString();
 
-        $registeredWebhooks = [];
+        $this->gitLabApiClient
+            ->expects($this->once())
+            ->method('removeGroupWebhook')
+            ->with('https://gitlab.com', 'plaintext-token', '99', $webhookUrl);
+
+        $clearedWebhooks = [];
         $this->gitLabApiClient
             ->expects($this->exactly(2))
-            ->method('ensureProjectWebhook')
-            ->willReturnCallback(function (string $baseUrl, string $accessToken, string $externalProjectId, string $webhookUrl, string $secretToken) use (&$registeredWebhooks): void {
-                $registeredWebhooks[] = $externalProjectId;
+            ->method('removeProjectWebhook')
+            ->willReturnCallback(static function (string $baseUrl, string $accessToken, string $externalProjectId, string $url) use (&$clearedWebhooks, $webhookUrl): void {
                 Assert::assertSame('plaintext-token', $accessToken);
-                Assert::assertSame(
-                    'http://localhost/api/webhooks/gitlab/'.$this->connection->organizationId()->asString(),
-                    $webhookUrl,
-                );
-                Assert::assertSame($this->connection->webhookSecret(), $secretToken);
+                Assert::assertSame($webhookUrl, $url);
+                $clearedWebhooks[] = $externalProjectId;
             });
 
         // Act
@@ -104,51 +104,12 @@ final class SyncGitLabProjectsHandlerTest extends TestCase
         Assert::assertSame(['1', '2'], $archivedFor);
         Assert::assertSame('success', $this->connection->lastSyncStatus()->value);
         Assert::assertSame(2, $this->connection->lastSyncProjectCount());
-        Assert::assertSame(['1', '2'], $registeredWebhooks);
+        Assert::assertSame(['1', '2'], $clearedWebhooks);
     }
 
     #[AllowMockObjectsWithoutExpectations]
     #[Test]
-    public function registers_one_group_webhook_and_removes_stale_project_webhooks_when_gitlab_allows_it(): void
-    {
-        // Arrange
-        $this->connections->method('findByOrganizationId')->willReturn($this->connection);
-        $this->tokenEncryptor->method('decrypt')->willReturn('plaintext-token');
-        $this->gitLabApiClient->method('listGroupProjects')->willReturn([
-            ['id' => 1, 'name' => 'Payments', 'path_with_namespace' => 'acme/payments'],
-            ['id' => 2, 'name' => 'Billing', 'path_with_namespace' => 'acme/billing'],
-        ]);
-        $this->projectRegistry->method('archiveMissing')->willReturn(0);
-
-        $webhookUrl = 'http://localhost/api/webhooks/gitlab/'.$this->connection->organizationId()->asString();
-
-        $this->gitLabApiClient
-            ->expects($this->once())
-            ->method('ensureGroupWebhook')
-            ->with('https://gitlab.com', 'plaintext-token', '99', $webhookUrl, $this->connection->webhookSecret())
-            ->willReturn(true);
-        $this->gitLabApiClient->expects($this->never())->method('ensureProjectWebhook');
-
-        $removedFrom = [];
-        $this->gitLabApiClient
-            ->expects($this->exactly(2))
-            ->method('removeProjectWebhook')
-            ->willReturnCallback(static function (string $baseUrl, string $accessToken, string $externalProjectId, string $url) use (&$removedFrom, $webhookUrl): void {
-                Assert::assertSame($webhookUrl, $url);
-                $removedFrom[] = $externalProjectId;
-            });
-
-        // Act
-        $result = ($this->handler)(new SyncGitLabProjectsCommand(organizationId: $this->connection->organizationId()->asString()));
-
-        // Assert
-        Assert::assertSame(2, $result->syncedCount);
-        Assert::assertSame(['1', '2'], $removedFrom);
-    }
-
-    #[AllowMockObjectsWithoutExpectations]
-    #[Test]
-    public function falls_back_to_project_webhooks_when_the_group_webhook_call_blows_up(): void
+    public function a_failed_group_webhook_removal_does_not_fail_the_sync(): void
     {
         // Arrange
         $this->connections->method('findByOrganizationId')->willReturn($this->connection);
@@ -159,10 +120,9 @@ final class SyncGitLabProjectsHandlerTest extends TestCase
         $this->projectRegistry->method('archiveMissing')->willReturn(0);
 
         $this->gitLabApiClient
-            ->method('ensureGroupWebhook')
+            ->method('removeGroupWebhook')
             ->willThrowException(new InvalidGitLabCredentialsException('the GitLab instance could not be reached while listing the webhook'));
-        $this->gitLabApiClient->expects($this->once())->method('ensureProjectWebhook');
-        $this->gitLabApiClient->expects($this->never())->method('removeProjectWebhook');
+        $this->gitLabApiClient->expects($this->once())->method('removeProjectWebhook');
 
         // Act
         $result = ($this->handler)(new SyncGitLabProjectsCommand(organizationId: $this->connection->organizationId()->asString()));
@@ -174,7 +134,7 @@ final class SyncGitLabProjectsHandlerTest extends TestCase
 
     #[AllowMockObjectsWithoutExpectations]
     #[Test]
-    public function a_failed_stale_project_webhook_removal_does_not_fail_the_project_sync(): void
+    public function a_failed_project_webhook_removal_does_not_fail_the_project_sync(): void
     {
         // Arrange
         $this->connections->method('findByOrganizationId')->willReturn($this->connection);
@@ -184,34 +144,9 @@ final class SyncGitLabProjectsHandlerTest extends TestCase
         ]);
         $this->projectRegistry->method('archiveMissing')->willReturn(0);
 
-        $this->gitLabApiClient->method('ensureGroupWebhook')->willReturn(true);
         $this->gitLabApiClient
             ->method('removeProjectWebhook')
             ->willThrowException(new InvalidGitLabCredentialsException('GitLab responded with status 500'));
-
-        // Act
-        $result = ($this->handler)(new SyncGitLabProjectsCommand(organizationId: $this->connection->organizationId()->asString()));
-
-        // Assert
-        Assert::assertSame(1, $result->syncedCount);
-        Assert::assertSame(0, $result->failedCount);
-    }
-
-    #[AllowMockObjectsWithoutExpectations]
-    #[Test]
-    public function a_failed_webhook_registration_does_not_fail_the_project_sync(): void
-    {
-        // Arrange
-        $this->connections->method('findByOrganizationId')->willReturn($this->connection);
-        $this->tokenEncryptor->method('decrypt')->willReturn('plaintext-token');
-        $this->gitLabApiClient->method('listGroupProjects')->willReturn([
-            ['id' => 1, 'name' => 'Payments', 'path_with_namespace' => 'acme/payments'],
-        ]);
-        $this->gitLabApiClient
-            ->method('ensureProjectWebhook')
-            ->willThrowException(new InvalidGitLabCredentialsException('group webhooks require a paid GitLab tier'));
-
-        $this->projectRegistry->method('archiveMissing')->willReturn(0);
 
         // Act
         $result = ($this->handler)(new SyncGitLabProjectsCommand(organizationId: $this->connection->organizationId()->asString()));

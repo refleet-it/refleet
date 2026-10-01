@@ -33,7 +33,6 @@ final readonly class GetGitLabConnectionHandler
             lastSyncStatus: $connection->lastSyncStatus()->value,
             lastSyncError: $connection->lastSyncError(),
             lastSyncProjectCount: $connection->lastSyncProjectCount(),
-            webhookSecret: $connection->webhookSecret(),
             authMethod: $connection->usesOAuth() ? 'oauth' : 'access_token',
         );
     }

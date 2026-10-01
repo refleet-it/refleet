@@ -66,7 +66,7 @@ final class GetGitLabConnectionHandlerTest extends TestCase
         Assert::assertSame('success', $result->lastSyncStatus);
         Assert::assertSame(7, $result->lastSyncProjectCount);
         Assert::assertNull($result->lastSyncError);
-        Assert::assertSame(64, \strlen($result->webhookSecret));
+        Assert::assertSame('access_token', $result->authMethod);
     }
 
     #[\Override]

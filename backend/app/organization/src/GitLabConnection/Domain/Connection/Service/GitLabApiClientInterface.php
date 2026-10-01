@@ -19,29 +19,26 @@ interface GitLabApiClientInterface
     public function listGroupProjects(string $baseUrl, string $accessToken, string $groupId): iterable;
 
     /**
-     * Registers a group-level webhook for merge request events across every project in the
-     * group and its subgroups, unless one already points at $webhookUrl. Returns false when
-     * GitLab refuses the group hook outright — group webhooks are Premium/Ultimate only and
-     * need the Owner role — so the caller can fall back to project-level hooks.
+     * Reads the state of the given merge requests in one project. GitLab takes a list of
+     * iids per request, so a project with a dozen open merge requests still costs a
+     * single call.
+     *
+     * @param list<string> $iids
+     *
+     * @return array<string, string> iid => state, one of "opened", "closed", "locked" or
+     *                               "merged"; an iid GitLab does not return is absent
      */
-    public function ensureGroupWebhook(
+    public function listMergeRequestStates(string $baseUrl, string $accessToken, string $externalProjectId, array $iids): array;
+
+    /**
+     * Deletes every group-level webhook pointing at $webhookUrl; a no-op when there is
+     * none, and when GitLab refuses group hooks outright (Premium/Ultimate only).
+     */
+    public function removeGroupWebhook(
         string $baseUrl,
         string $accessToken,
         string $groupId,
         string $webhookUrl,
-        string $secretToken,
-    ): bool;
-
-    /**
-     * Registers a project-level webhook for merge request events, unless one already
-     * points at $webhookUrl. The fallback for GitLab tiers without group webhooks.
-     */
-    public function ensureProjectWebhook(
-        string $baseUrl,
-        string $accessToken,
-        string $externalProjectId,
-        string $webhookUrl,
-        string $secretToken,
     ): void;
 
     /**

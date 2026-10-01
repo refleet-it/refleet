@@ -174,25 +174,67 @@ final class DoctrineShiftTargetRepositoryTest extends KernelTestCase
     }
 
     #[Test]
-    public function finds_a_shift_target_by_its_merge_request_url(): void
+    public function queues_only_targets_waiting_on_a_merge_request(): void
     {
         // Arrange
-        $id = ShiftTargetId::generate();
-        $target = $this->createTarget($id, ShiftId::generate(), OrganizationId::generate());
-        $target->startChange(ShiftTargetId::generate()->asString());
-        $target->recordChangeSuccess('applied change', 'refleet/bump-lib', 'runner-1', 'https://gitlab.com/acme/payments-service/-/merge_requests/7', '7');
+        $shiftId = ShiftId::generate();
+        $organizationId = OrganizationId::generate();
+
+        $waiting = $this->openMergeRequest($shiftId, $organizationId, 'https://gitlab.com/acme/payments-service/-/merge_requests/7');
+
+        $stillRunning = $this->createTarget(ShiftTargetId::generate(), $shiftId, $organizationId);
+        $stillRunning->startChange(ShiftTargetId::generate()->asString());
+
+        $merged = $this->openMergeRequest($shiftId, $organizationId, 'https://gitlab.com/acme/billing-service/-/merge_requests/3');
+        $merged->recordMergeRequestMerged();
+
+        $this->repository->saveAll([$waiting, $stillRunning, $merged]);
+        $this->entityManager->clear();
+
+        // Act
+        $due = $this->repository->findOpenMergeRequestsToCheck(new \DateTimeImmutable('+1 minute'), 10);
+
+        // Assert
+        Assert::assertCount(1, $due);
+        Assert::assertTrue($due[0]->id()->equals($waiting->id()));
+    }
+
+    #[Test]
+    public function skips_a_merge_request_that_was_just_checked(): void
+    {
+        // Arrange
+        $target = $this->openMergeRequest(ShiftId::generate(), OrganizationId::generate(), 'https://gitlab.com/acme/payments-service/-/merge_requests/7');
 
         $this->repository->save($target);
         $this->entityManager->clear();
 
         // Act
-        $found = $this->repository->findByMergeRequestUrl('https://gitlab.com/acme/payments-service/-/merge_requests/7');
-        $missing = $this->repository->findByMergeRequestUrl('https://gitlab.com/acme/other/-/merge_requests/1');
+        $due = $this->repository->findOpenMergeRequestsToCheck(new \DateTimeImmutable('-1 minute'), 10);
+
+        // Assert: opening the merge request counts as knowing its state, so it waits its turn
+        Assert::assertSame([], $due);
+    }
+
+    #[Test]
+    public function caps_one_polling_pass_at_the_given_limit(): void
+    {
+        // Arrange
+        $shiftId = ShiftId::generate();
+        $organizationId = OrganizationId::generate();
+
+        $targets = [];
+        for ($i = 1; $i <= 3; ++$i) {
+            $targets[] = $this->openMergeRequest($shiftId, $organizationId, \sprintf('https://gitlab.com/acme/service-%d/-/merge_requests/1', $i));
+        }
+
+        $this->repository->saveAll($targets);
+        $this->entityManager->clear();
+
+        // Act
+        $due = $this->repository->findOpenMergeRequestsToCheck(new \DateTimeImmutable('+1 minute'), 2);
 
         // Assert
-        Assert::assertInstanceOf(ShiftTarget::class, $found);
-        Assert::assertTrue($found->id()->equals($id));
-        Assert::assertNull($missing);
+        Assert::assertCount(2, $due);
     }
 
     #[\Override]
@@ -207,6 +249,15 @@ final class DoctrineShiftTargetRepositoryTest extends KernelTestCase
         $entityManager = $managerRegistry->getManagerForClass(ShiftTarget::class);
         Assert::assertInstanceOf(EntityManagerInterface::class, $entityManager);
         $this->entityManager = $entityManager;
+    }
+
+    private function openMergeRequest(ShiftId $shiftId, OrganizationId $organizationId, string $mergeRequestUrl): ShiftTarget
+    {
+        $target = $this->createTarget(ShiftTargetId::generate(), $shiftId, $organizationId);
+        $target->startChange(ShiftTargetId::generate()->asString());
+        $target->recordChangeSuccess('applied change', 'refleet/bump-lib', 'runner-1', $mergeRequestUrl, '7');
+
+        return $target;
     }
 
     private function createTarget(ShiftTargetId $id, ShiftId $shiftId, OrganizationId $organizationId): ShiftTarget

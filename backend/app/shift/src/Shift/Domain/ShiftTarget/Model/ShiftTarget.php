@@ -25,11 +25,15 @@ use Doctrine\ORM\Mapping as ORM;
  * @SuppressWarnings("PHPMD.TooManyFields") Tracks two independent sub-lifecycles
  * (change, merge request) as flattened columns - no Doctrine Embeddables in this
  * codebase - plus one state transition method per lifecycle step.
+ * @SuppressWarnings("PHPMD.TooManyMethods") The same cause seen from the other side:
+ * every flattened column needs an accessor, and PHPMD counts those as real methods
+ * because they carry no "get" or "set" prefix.
  */
 #[ORM\Entity]
 #[ORM\Table(name: 'shift_targets', schema: 'shift')]
 #[ORM\Index(name: 'idx_shift_targets_shift_id_status', columns: ['shift_id', 'status'])]
 #[ORM\Index(name: 'idx_shift_targets_organization_id', columns: ['organization_id'])]
+#[ORM\Index(name: 'idx_shift_targets_status_mr_checked_at', columns: ['status', 'merge_request_checked_at'])]
 #[ORM\UniqueConstraint(name: 'uniq_shift_targets_shift_project', columns: ['shift_id', 'project_id'])]
 class ShiftTarget extends AggregateRoot
 {
@@ -97,6 +101,16 @@ class ShiftTarget extends AggregateRoot
     #[ORM\Column(name: 'merge_request_closed_at', type: Types::DATETIME_IMMUTABLE, nullable: true)]
     private ?\DateTimeImmutable $mergeRequestClosedAt = null;
 
+    /**
+     * When this merge request's state was last known to be current — set by whoever told
+     * us about it, the runner or the poller. It is what orders the polling queue (least
+     * recently checked first), so the poller stamps it even for a merge request GitLab
+     * could not be asked about: an organization whose connection is broken must not
+     * monopolise every pass.
+     */
+    #[ORM\Column(name: 'merge_request_checked_at', type: Types::DATETIME_IMMUTABLE, nullable: true)]
+    private ?\DateTimeImmutable $mergeRequestCheckedAt = null;
+
     #[ORM\Column(name: 'created_at', type: Types::DATETIME_IMMUTABLE)]
     private \DateTimeImmutable $createdAt;
 
@@ -163,6 +177,7 @@ class ShiftTarget extends AggregateRoot
         $this->mergeRequestExternalIid = $mergeRequestIid;
         $this->mergeRequestStatus = MergeRequestStatusEnum::OPEN;
         $this->mergeRequestOpenedAt ??= new \DateTimeImmutable();
+        $this->mergeRequestCheckedAt = new \DateTimeImmutable();
     }
 
     public function recordChangeFailure(string $error, string $runnerName): void
@@ -211,6 +226,16 @@ class ShiftTarget extends AggregateRoot
         }
 
         $this->mergeRequestOpenedAt ??= new \DateTimeImmutable();
+        $this->mergeRequestCheckedAt = new \DateTimeImmutable();
+    }
+
+    /**
+     * The poller asked GitLab about this merge request and is done with it for now,
+     * whatever the answer was — including no answer at all.
+     */
+    public function recordMergeRequestChecked(): void
+    {
+        $this->mergeRequestCheckedAt = new \DateTimeImmutable();
     }
 
     public function recordMergeRequestMerged(): void
@@ -338,6 +363,11 @@ class ShiftTarget extends AggregateRoot
     public function mergeRequestClosedAt(): ?\DateTimeImmutable
     {
         return $this->mergeRequestClosedAt;
+    }
+
+    public function mergeRequestCheckedAt(): ?\DateTimeImmutable
+    {
+        return $this->mergeRequestCheckedAt;
     }
 
     public function createdAt(): \DateTimeImmutable

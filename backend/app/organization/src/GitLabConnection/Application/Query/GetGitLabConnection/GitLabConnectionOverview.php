@@ -15,7 +15,6 @@ final readonly class GitLabConnectionOverview
         public string $lastSyncStatus,
         public ?string $lastSyncError,
         public ?int $lastSyncProjectCount,
-        public string $webhookSecret,
         public string $authMethod,
     ) {
     }

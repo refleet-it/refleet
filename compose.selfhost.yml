@@ -75,11 +75,12 @@ services:
             retries: 3
             start_period: 40s
 
-    # One process drains every context's queue. The monolith declares all six transports
-    # with their real serializers — see backend/app/monolith/config/packages/messenger.yaml.
+    # One process drains every context's queue, plus the generated scheduler_shift transport
+    # that drives the merge request poller. The monolith declares all six queue transports with
+    # their real serializers — see backend/app/monolith/config/packages/messenger.yaml.
     worker:
         <<: *backend-image
-        command: php bin/console messenger:consume to_identity to_notification to_organization to_runner to_qualification to_shift --time-limit=3600 --memory-limit=192M
+        command: php bin/console messenger:consume to_identity to_notification to_organization to_runner to_qualification to_shift scheduler_shift --time-limit=3600 --memory-limit=192M
         depends_on:
             migrations:
                 condition: service_completed_successfully

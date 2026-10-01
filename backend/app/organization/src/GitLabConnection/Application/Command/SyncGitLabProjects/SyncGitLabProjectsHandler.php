@@ -74,7 +74,7 @@ final readonly class SyncGitLabProjectsHandler
         $seenExternalIds = [];
 
         $webhookUrl = \sprintf('%s/api/webhooks/gitlab/%s', \rtrim($this->appUrl, '/'), $organizationId);
-        $groupWebhookInPlace = $this->ensureGroupWebhook($connection, $accessToken, $webhookUrl);
+        $this->removeGroupWebhook($connection, $accessToken, $webhookUrl);
 
         try {
             foreach ($this->gitLabApiClient->listGroupProjects($connection->baseUrl(), $accessToken, $connection->groupId()) as $project) {
@@ -82,12 +82,7 @@ final readonly class SyncGitLabProjectsHandler
 
                 if (\is_scalar($externalId)) {
                     $seenExternalIds[] = (string) $externalId;
-
-                    if ($groupWebhookInPlace) {
-                        $this->removeProjectWebhook($connection, $accessToken, (string) $externalId, $webhookUrl);
-                    } else {
-                        $this->ensureProjectWebhook($connection, $accessToken, (string) $externalId, $webhookUrl);
-                    }
+                    $this->removeProjectWebhook($connection, $accessToken, (string) $externalId, $webhookUrl);
                 }
 
                 if ($this->registerProject($organizationId, $project)) {
@@ -107,9 +102,10 @@ final readonly class SyncGitLabProjectsHandler
     }
 
     /**
-     * Unlike the webhooks this is not best-effort: without the label the runner's merge
-     * requests would still open, but GitLab would auto-create the label in a random colour
-     * (or silently drop it), so the sync is marked failed and the reason shown to the customer.
+     * Unlike the webhook clean-up this is not best-effort: without the label the runner's
+     * merge requests would still open, but GitLab would auto-create the label in a random
+     * colour (or silently drop it), so the sync is marked failed and the reason shown to
+     * the customer.
      */
     private function ensureRefleetLabel(GitLabConnection $connection, string $accessToken): ?string
     {
@@ -134,69 +130,31 @@ final readonly class SyncGitLabProjectsHandler
     }
 
     /**
-     * One hook on the group covers every project in it and its subgroups, so it is preferred
-     * over cluttering each project with its own. Best-effort like the project hooks: GitLab
-     * refusing it (Free tier, token below Owner) or being unreachable only means falling back
-     * to per-project hooks for this sync.
+     * Refleet used to register merge request webhooks here and now polls GitLab instead,
+     * so a sync tidies away the hooks earlier versions left behind. Best-effort, and
+     * deletable once every instance has synced at least once on this version — until then
+     * it is what keeps a customer's group from carrying hooks that only ever 404.
      */
-    private function ensureGroupWebhook(GitLabConnection $connection, string $accessToken, string $webhookUrl): bool
+    private function removeGroupWebhook(GitLabConnection $connection, string $accessToken, string $webhookUrl): void
     {
         try {
-            $inPlace = $this->gitLabApiClient->ensureGroupWebhook(
+            $this->gitLabApiClient->removeGroupWebhook(
                 $connection->baseUrl(),
                 $accessToken,
                 $connection->groupId(),
                 $webhookUrl,
-                $connection->webhookSecret(),
             );
         } catch (\Throwable $throwable) {
-            $this->logger->warning('Failed to register GitLab group merge request webhook during sync, falling back to project webhooks', [
+            $this->logger->warning('Failed to remove a stale GitLab group webhook during sync', [
                 'organizationId' => $connection->organizationId()->asString(),
                 'groupId' => $connection->groupId(),
-                'error' => $throwable->getMessage(),
-            ]);
-
-            return false;
-        }
-
-        if (!$inPlace) {
-            $this->logger->info('GitLab group webhooks are unavailable for this connection, falling back to project webhooks', [
-                'organizationId' => $connection->organizationId()->asString(),
-                'groupId' => $connection->groupId(),
-            ]);
-        }
-
-        return $inPlace;
-    }
-
-    /**
-     * Best-effort: a failure here (insufficient token scope, GitLab tier restrictions,
-     * the webhook URL being unreachable from GitLab's side, ...) must not fail the sync
-     * that already found and registered the project — it only means merge request status
-     * keeps relying on the runner's own report instead of updating instantly.
-     */
-    private function ensureProjectWebhook(GitLabConnection $connection, string $accessToken, string $externalId, string $webhookUrl): void
-    {
-        try {
-            $this->gitLabApiClient->ensureProjectWebhook(
-                $connection->baseUrl(),
-                $accessToken,
-                $externalId,
-                $webhookUrl,
-                $connection->webhookSecret(),
-            );
-        } catch (\Throwable $throwable) {
-            $this->logger->warning('Failed to register GitLab merge request webhook during sync', [
-                'organizationId' => $connection->organizationId()->asString(),
-                'externalId' => $externalId,
                 'error' => $throwable->getMessage(),
             ]);
         }
     }
 
     /**
-     * Project hooks left over from before the group hook existed would make every merge
-     * request event arrive twice, so they are cleaned up — also best-effort.
+     * @see self::removeGroupWebhook() — the per-project half of the same clean-up
      */
     private function removeProjectWebhook(GitLabConnection $connection, string $accessToken, string $externalId, string $webhookUrl): void
     {

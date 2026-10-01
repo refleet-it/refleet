@@ -12,12 +12,19 @@ use Symfony\Contracts\HttpClient\HttpClientInterface;
 use Symfony\Contracts\HttpClient\ResponseInterface;
 
 /**
- * Client for interacting with the GitLab REST API (v4) to resolve a group, list its projects and manage webhooks and labels.
+ * Client for interacting with the GitLab REST API (v4) to resolve a group, list its projects, read merge request states and manage labels.
  */
 final readonly class GitLabApiClient implements GitLabApiClientInterface
 {
     /** GitLab caps per_page at 100; asking for more is silently truncated, so paging is required either way. */
     private const int PROJECTS_PER_PAGE = 100;
+
+    /**
+     * How many iids go into one merge request query. Well under the per_page cap, and it
+     * keeps the hand-built query string short enough for whatever proxy sits in front of
+     * a self-managed instance.
+     */
+    private const int MERGE_REQUEST_IIDS_PER_REQUEST = 50;
 
     private const string HOOK_OWNER_NOT_FOUND = 'the webhook target was not found';
 
@@ -93,60 +100,44 @@ final readonly class GitLabApiClient implements GitLabApiClientInterface
         }
     }
 
+    #[\Override]
+    public function listMergeRequestStates(string $baseUrl, string $accessToken, string $externalProjectId, array $iids): array
+    {
+        $states = [];
+
+        foreach (\array_chunk($iids, self::MERGE_REQUEST_IIDS_PER_REQUEST) as $chunk) {
+            foreach ($this->fetchMergeRequests($baseUrl, $accessToken, $externalProjectId, $chunk) as $mergeRequest) {
+                if (!\is_array($mergeRequest) || !\is_scalar($mergeRequest['iid'] ?? null) || !\is_string($mergeRequest['state'] ?? null)) {
+                    continue;
+                }
+
+                $states[(string) $mergeRequest['iid']] = $mergeRequest['state'];
+            }
+        }
+
+        return $states;
+    }
+
     /**
-     * GitLab answers 404 for group hooks on tiers without the feature and 403 when the token's
-     * role in the group is too low to manage them; both mean "use project hooks instead".
+     * Group hooks are Premium/Ultimate only and need the Owner role, so a 403/404 here
+     * means there was never a group hook to remove rather than a failure.
      */
     #[\Override]
-    public function ensureGroupWebhook(
+    public function removeGroupWebhook(
         string $baseUrl,
         string $accessToken,
         string $groupId,
         string $webhookUrl,
-        string $secretToken,
-    ): bool {
+    ): void {
         $hooksPath = '/groups/'.\rawurlencode($groupId).'/hooks';
 
         $response = $this->requestHooks('GET', $baseUrl, $accessToken, $hooksPath, 'listing');
 
-        if ($this->isGroupWebhookRefused($response)) {
-            return false;
-        }
-
-        if ($this->webhookIsListed($this->decodeOrFail($response, self::HOOK_OWNER_NOT_FOUND), $webhookUrl)) {
-            return true;
-        }
-
-        $response = $this->requestHooks('POST', $baseUrl, $accessToken, $hooksPath, 'registering', $this->webhookPayload($webhookUrl, $secretToken));
-
-        if ($this->isGroupWebhookRefused($response)) {
-            return false;
-        }
-
-        $this->decodeOrFail($response, self::HOOK_OWNER_NOT_FOUND, 201);
-
-        return true;
-    }
-
-    #[\Override]
-    public function ensureProjectWebhook(
-        string $baseUrl,
-        string $accessToken,
-        string $externalProjectId,
-        string $webhookUrl,
-        string $secretToken,
-    ): void {
-        $hooksPath = '/projects/'.\rawurlencode($externalProjectId).'/hooks';
-
-        $hooks = $this->decodeOrFail($this->requestHooks('GET', $baseUrl, $accessToken, $hooksPath, 'listing'), self::HOOK_OWNER_NOT_FOUND);
-
-        if ($this->webhookIsListed($hooks, $webhookUrl)) {
+        if (\in_array($response->getStatusCode(), [403, 404], true)) {
             return;
         }
 
-        $response = $this->requestHooks('POST', $baseUrl, $accessToken, $hooksPath, 'registering', $this->webhookPayload($webhookUrl, $secretToken));
-
-        $this->decodeOrFail($response, self::HOOK_OWNER_NOT_FOUND, 201);
+        $this->deleteListedHooks($baseUrl, $accessToken, $hooksPath, $webhookUrl, $this->decodeOrFail($response, self::HOOK_OWNER_NOT_FOUND));
     }
 
     #[\Override]
@@ -160,18 +151,7 @@ final readonly class GitLabApiClient implements GitLabApiClientInterface
 
         $hooks = $this->decodeOrFail($this->requestHooks('GET', $baseUrl, $accessToken, $hooksPath, 'listing'), self::HOOK_OWNER_NOT_FOUND);
 
-        foreach ($hooks as $hook) {
-            if (!\is_array($hook) || ($hook['url'] ?? null) !== $webhookUrl || !\is_scalar($hook['id'] ?? null)) {
-                continue;
-            }
-
-            $response = $this->requestHooks('DELETE', $baseUrl, $accessToken, $hooksPath.'/'.\rawurlencode((string) $hook['id']), 'removing');
-            $statusCode = $response->getStatusCode();
-
-            if (!\in_array($statusCode, [204, 404], true)) {
-                $this->decodeOrFail($response, self::HOOK_OWNER_NOT_FOUND, 204);
-            }
-        }
+        $this->deleteListedHooks($baseUrl, $accessToken, $hooksPath, $webhookUrl, $hooks);
     }
 
     /**
@@ -210,6 +190,51 @@ final readonly class GitLabApiClient implements GitLabApiClientInterface
             'description' => $label->description,
         ]);
         $this->decodeLabelsOrFail($response, $groupId);
+    }
+
+    /**
+     * GitLab expects the iids as repeated `iids[]` parameters. PHP's own query
+     * serialization would send `iids[0]=…`, which Rails parses as a hash and the endpoint
+     * then rejects, so the query string is built by hand.
+     *
+     * @param list<string> $iids
+     *
+     * @return array<mixed>
+     */
+    private function fetchMergeRequests(string $baseUrl, string $accessToken, string $externalProjectId, array $iids): array
+    {
+        $url = $this->endpoint($baseUrl, '/projects/'.\rawurlencode($externalProjectId).'/merge_requests')
+            .'?per_page='.self::MERGE_REQUEST_IIDS_PER_REQUEST
+            .'&'.\implode('&', \array_map(static fn (string $iid): string => 'iids%5B%5D='.\rawurlencode($iid), $iids));
+
+        try {
+            $response = $this->httpClient->request('GET', $url, ['headers' => ['Authorization' => 'Bearer '.$accessToken]]);
+
+            return $this->decodeOrFail($response, \sprintf('project "%s" was not found', $externalProjectId));
+        } catch (InvalidGitLabCredentialsException $exception) {
+            throw $exception;
+        } catch (\Throwable) {
+            throw new InvalidGitLabCredentialsException('the GitLab instance could not be reached while reading merge requests');
+        }
+    }
+
+    /**
+     * @param array<mixed> $hooks
+     */
+    private function deleteListedHooks(string $baseUrl, string $accessToken, string $hooksPath, string $webhookUrl, array $hooks): void
+    {
+        foreach ($hooks as $hook) {
+            if (!\is_array($hook) || ($hook['url'] ?? null) !== $webhookUrl || !\is_scalar($hook['id'] ?? null)) {
+                continue;
+            }
+
+            $response = $this->requestHooks('DELETE', $baseUrl, $accessToken, $hooksPath.'/'.\rawurlencode((string) $hook['id']), 'removing');
+            $statusCode = $response->getStatusCode();
+
+            if (!\in_array($statusCode, [204, 404], true)) {
+                $this->decodeOrFail($response, self::HOOK_OWNER_NOT_FOUND, 204);
+            }
+        }
     }
 
     /**
@@ -296,33 +321,6 @@ final readonly class GitLabApiClient implements GitLabApiClientInterface
         }
 
         return $response;
-    }
-
-    /**
-     * @return array<string, mixed>
-     */
-    private function webhookPayload(string $webhookUrl, string $secretToken): array
-    {
-        return [
-            'url' => $webhookUrl,
-            'token' => $secretToken,
-            'merge_requests_events' => true,
-            'push_events' => false,
-            'enable_ssl_verification' => \str_starts_with($webhookUrl, 'https://'),
-        ];
-    }
-
-    /**
-     * @param array<mixed> $hooks
-     */
-    private function webhookIsListed(array $hooks, string $webhookUrl): bool
-    {
-        return \array_any($hooks, static fn ($hook) => \is_array($hook) && ($hook['url'] ?? null) === $webhookUrl);
-    }
-
-    private function isGroupWebhookRefused(ResponseInterface $response): bool
-    {
-        return \in_array($response->getStatusCode(), [403, 404], true);
     }
 
     /**

@@ -24,8 +24,8 @@ services:
     # HTTP-backed adapters — see App\Shared\Infrastructure\Http\Internal\.
     App\Shared\Domain\Service\OrganizationContextProviderInterface:
         alias: App\Shared\Infrastructure\Http\Internal\HttpOrganizationContextProvider
-    App\Shared\Domain\Service\GitLabWebhookSecretProviderInterface:
-        alias: App\Shared\Infrastructure\Http\Internal\HttpGitLabWebhookSecretProvider
+    App\Shared\Domain\Service\MergeRequestStateReaderInterface:
+        alias: App\Shared\Infrastructure\Http\Internal\HttpMergeRequestStateReader
     App\Shared\Domain\Service\RunnerDirectoryInterface:
         alias: App\Shared\Infrastructure\Http\Internal\HttpRunnerDirectory
     App\Shared\Domain\Service\ProjectCatalogInterface:
