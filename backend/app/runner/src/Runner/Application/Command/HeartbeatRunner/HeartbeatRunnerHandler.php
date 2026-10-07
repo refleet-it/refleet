@@ -38,17 +38,15 @@ final readonly class HeartbeatRunnerHandler
 
         $runner = $this->runners->findByOrganizationIdAndName($organizationId, $command->name);
 
-        if (null === $runner) {
-            $runner = Runner::register(
-                id: RunnerId::generate(),
-                organizationId: $organizationId,
-                name: $command->name,
-                lastSeenAt: $now,
-                apiKeyId: $command->apiKeyId,
-                supportedEngines: $command->supportedEngines,
-                supportedModels: $command->supportedModels,
-            );
-        }
+        $runner ??= Runner::register(
+            id: RunnerId::generate(),
+            organizationId: $organizationId,
+            name: $command->name,
+            lastSeenAt: $now,
+            apiKeyId: $command->apiKeyId,
+            supportedEngines: $command->supportedEngines,
+            supportedModels: $command->supportedModels,
+        );
 
         $runner->heartbeat($now, $command->apiKeyId, $command->supportedEngines, $command->supportedModels, $command->usage, $command->version);
         // A browser session heartbeating carries no version and would otherwise swallow a

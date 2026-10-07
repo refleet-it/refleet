@@ -67,11 +67,9 @@ final class ClaimCliAuthorizationHandlerTest extends TestCase
         $this->apiKeys
             ->expects($this->once())
             ->method('save')
-            ->with($this->callback(static function (ApiKey $apiKey) use (&$savedKey): bool {
+            ->willReturnCallback(static function (ApiKey $apiKey) use (&$savedKey): void {
                 $savedKey = $apiKey;
-
-                return true;
-            }));
+            });
 
         // Act
         $result = ($this->handler)(new ClaimCliAuthorizationCommand(self::SECRET, 'refleet-runner (laptop)'));

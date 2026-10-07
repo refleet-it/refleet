@@ -22,10 +22,10 @@ final readonly class CreateQualificationRequest
         public ?string $description = null,
         #[Assert\NotBlank]
         #[Assert\Choice(choices: ['ai'])]
-        #[OA\Property(type: 'string', enum: ['ai'], example: 'ai')]
+        #[OA\Property(type: 'string', example: 'ai', enum: ['ai'])]
         public string $qualificationMode = 'ai',
         #[Assert\Choice(choices: ['claude', 'kiro'])]
-        #[OA\Property(description: 'Which agent CLI runs the prompt ("claude" or "kiro"), defaulting to "claude".', type: 'string', enum: ['claude', 'kiro'], example: 'claude')]
+        #[OA\Property(description: 'Which agent CLI runs the prompt ("claude" or "kiro"), defaulting to "claude".', type: 'string', example: 'claude', enum: ['claude', 'kiro'])]
         public ?string $qualificationEngine = null,
         #[Assert\NotBlank]
         #[OA\Property(type: 'string', example: 'Does this repository depend on acme/legacy-lib?')]

@@ -75,12 +75,10 @@ final class DeleteFileHandlerTest extends TestCase
         $this->files
             ->expects($this->once())
             ->method('save')
-            ->with($this->callback(static function (File $saved) use ($fileId): bool {
+            ->willReturnCallback(static function (File $saved) use ($fileId): void {
                 Assert::assertSame($fileId->asString(), $saved->id()->asString());
                 Assert::assertTrue($saved->isDeleted());
-
-                return true;
-            }));
+            });
 
         $command = new DeleteFileCommand($fileId, $uploaderId);
 

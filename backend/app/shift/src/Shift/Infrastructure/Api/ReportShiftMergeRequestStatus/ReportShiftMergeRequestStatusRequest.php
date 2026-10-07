@@ -16,7 +16,7 @@ final readonly class ReportShiftMergeRequestStatusRequest
     public function __construct(
         #[Assert\NotBlank]
         #[Assert\Choice(choices: ['opened', 'merged', 'closed'])]
-        #[OA\Property(type: 'string', enum: ['opened', 'merged', 'closed'], example: 'merged')]
+        #[OA\Property(type: 'string', example: 'merged', enum: ['opened', 'merged', 'closed'])]
         public string $status,
         #[Assert\Length(max: 500)]
         #[OA\Property(type: 'string', example: 'https://gitlab.com/backend-team/payments-service/-/merge_requests/42')]

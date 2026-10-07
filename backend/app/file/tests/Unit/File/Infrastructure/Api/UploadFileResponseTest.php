@@ -6,6 +6,7 @@ namespace App\Tests\Unit\File\File\Infrastructure\Api;
 
 use App\File\File\Infrastructure\Api\UploadFileResponse;
 use OpenApi\Attributes as OA;
+use OpenApi\Generator;
 use PHPUnit\Framework\Assert;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
@@ -159,7 +160,7 @@ final class UploadFileResponseTest extends TestCase
         foreach ($properties as $property) {
             Assert::assertInstanceOf(OA\Property::class, $property);
             $format = $property->format;
-            if (\is_string($format) && \str_contains($format, 'Generator::UNDEFINED')) {
+            if (Generator::UNDEFINED === $format) {
                 $format = null;
             }
 
