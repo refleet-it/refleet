@@ -58,7 +58,7 @@ abstract readonly class AbstractCursorListQuery implements CursorListQueryInterf
         // Remove the extra item we fetched to check if there are more pages
         $limit = $parameters->getPagination()->getLimit();
         if (\count($items) > $limit) {
-            $items = \array_slice($items, 0, $limit);
+            return \array_slice($items, 0, $limit);
         }
 
         return $items;

@@ -41,11 +41,9 @@ final class EnqueueRunnerJobHandlerTest extends TestCase
         $this->runnerJobs
             ->expects($this->once())
             ->method('save')
-            ->with($this->callback(static function (RunnerJob $job) use (&$saved): bool {
+            ->willReturnCallback(static function (RunnerJob $job) use (&$saved): void {
                 $saved = $job;
-
-                return true;
-            }));
+            });
 
         // Act
         $result = ($this->handler)(new EnqueueRunnerJobCommand(

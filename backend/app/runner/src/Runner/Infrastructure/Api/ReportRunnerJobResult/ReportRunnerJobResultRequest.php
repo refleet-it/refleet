@@ -20,7 +20,7 @@ final readonly class ReportRunnerJobResultRequest
         public string $runnerId,
         #[Assert\NotBlank]
         #[Assert\Choice(choices: ['success', 'failure'])]
-        #[OA\Property(type: 'string', enum: ['success', 'failure'], example: 'success')]
+        #[OA\Property(type: 'string', example: 'success', enum: ['success', 'failure'])]
         public string $outcome,
         #[Assert\NotBlank]
         #[OA\Property(type: 'string', example: 'Project depends on acme/legacy-lib in composer.json')]
@@ -33,7 +33,7 @@ final readonly class ReportRunnerJobResultRequest
         #[OA\Property(type: 'string', example: 'git clone failed: authentication required')]
         public ?string $errorMessage = null,
         #[Assert\Range(min: 1, max: 5)]
-        #[OA\Property(description: 'For kind=qualification jobs: how well the project matches the criteria, from 1 (clearly does not) to 5 (clearly does). Required on a successful qualification outcome; the Qualification context applies the cut-off.', type: 'integer', maximum: 5, minimum: 1, example: 4)]
+        #[OA\Property(description: 'For kind=qualification jobs: how well the project matches the criteria, from 1 (clearly does not) to 5 (clearly does). Required on a successful qualification outcome; the Qualification context applies the cut-off.', type: 'integer', example: 4, maximum: 5, minimum: 1)]
         public ?int $score = null,
         #[Assert\Length(max: 255)]
         #[OA\Property(description: 'For kind=change jobs: the branch the runner pushed the change to.', type: 'string', example: 'refleet/change-8f0c…')]

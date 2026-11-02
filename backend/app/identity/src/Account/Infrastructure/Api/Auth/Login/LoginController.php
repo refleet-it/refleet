@@ -89,7 +89,7 @@ final readonly class LoginController
     {
         $response = new JsonResponse([
             'token' => [
-                'jwtToken' => null !== $tokensDto ? $tokensDto->jwtToken : '',
+                'jwtToken' => $tokensDto->jwtToken ?? '',
             ],
         ], Response::HTTP_OK);
 

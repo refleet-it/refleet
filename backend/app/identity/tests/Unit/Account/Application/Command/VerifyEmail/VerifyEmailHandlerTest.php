@@ -144,12 +144,10 @@ final class VerifyEmailHandlerTest extends TestCase
         $this->accountRepository
             ->expects($this->once())
             ->method('save')
-            ->with($this->callback(static function (Account $savedAccount) use ($account): bool {
+            ->willReturnCallback(static function (Account $savedAccount) use ($account): void {
                 Assert::assertSame($account, $savedAccount);
                 Assert::assertTrue($savedAccount->status()->isActive());
-
-                return true;
-            }));
+            });
 
         $this->tokenGenerator
             ->expects($this->once())

@@ -34,11 +34,9 @@ final class AccountMirroredMessageHandlerTest extends TestCase
         $this->repository
             ->expects($this->once())
             ->method('save')
-            ->with($this->callback(static function (Employee $employee) use (&$savedEmployee): bool {
+            ->willReturnCallback(static function (Employee $employee) use (&$savedEmployee): void {
                 $savedEmployee = $employee;
-
-                return true;
-            }));
+            });
 
         // Act
         ($this->handler)(new AccountMirroredMessage(

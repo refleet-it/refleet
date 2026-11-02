@@ -60,11 +60,9 @@ final class StartShiftChangeHandlerTest extends TestCase
         $target->method('id')->willReturn($targetId);
         $target->method('projectSnapshot')->willReturn(new ProjectSnapshot('48210942', 'backend-team/payments-service', 'Payments Service', 'main'));
         $publishedJobId = null;
-        $target->expects($this->once())->method('startChange')->with($this->callback(static function (string $jobId) use (&$publishedJobId): bool {
+        $target->expects($this->once())->method('startChange')->willReturnCallback(static function (string $jobId) use (&$publishedJobId): void {
             $publishedJobId = $jobId;
-
-            return true;
-        }));
+        });
         $this->shiftTargets->method('findByShiftIdAndStatuses')->willReturn([$target]);
 
         $this->bus

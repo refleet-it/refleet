@@ -38,11 +38,9 @@ final class ArchiveMissingProjectsHandlerTest extends TestCase
         $this->projects
             ->expects($this->once())
             ->method('save')
-            ->with($this->callback(static function (Project $project) use (&$saved): bool {
+            ->willReturnCallback(static function (Project $project) use (&$saved): void {
                 $saved[] = $project;
-
-                return true;
-            }));
+            });
 
         // Act
         $result = ($this->handler)(new ArchiveMissingProjectsCommand(

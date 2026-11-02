@@ -73,12 +73,10 @@ final class ProcessImageHandlerTest extends TestCase
         $this->fileRepository
             ->expects($this->once())
             ->method('save')
-            ->with($this->callback(static function (File $savedFile): bool {
+            ->willReturnCallback(static function (File $savedFile): void {
                 Assert::assertSame('uploads/webp/original.webp', $savedFile->path());
                 Assert::assertSame('uploads/webp/thumbnails/original.webp', $savedFile->thumbnailPath());
-
-                return true;
-            }));
+            });
 
         $this->storageService
             ->expects($this->once())

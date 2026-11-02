@@ -25,9 +25,12 @@ return RectorConfig::configure()
         phpunitCodeQuality: true,
     )->withSets([
         Rector\PHPUnit\Set\PHPUnitSetList::ANNOTATIONS_TO_ATTRIBUTES,
-        Rector\PHPUnit\Set\PHPUnitSetList::PHPUNIT_100,
         Rector\PHPUnit\Set\PHPUnitSetList::PHPUNIT_CODE_QUALITY,
-        Rector\PHPUnit\Set\PHPUnitSetList::PHPUNIT_120,
+        // Replaces the version-numbered sets (PHPUNIT_100, PHPUNIT_120), which rector 2.7
+        // dropped: COMPOSER_BASED reads the installed PHPUnit version out of composer.json
+        // and applies the migrations for it, so the set no longer has to be restated here
+        // every time PHPUnit moves.
+        Rector\PHPUnit\Set\PHPUnitSetList::COMPOSER_BASED,
     ])
     ->withRules([
         AddVoidReturnTypeWhereNoReturnRector::class,

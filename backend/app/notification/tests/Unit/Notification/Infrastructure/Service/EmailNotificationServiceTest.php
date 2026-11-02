@@ -49,7 +49,7 @@ final class EmailNotificationServiceTest extends TestCase
         $this->mailer
             ->expects($this->once())
             ->method('send')
-            ->with($this->callback(static function (Email $email): bool {
+            ->willReturnCallback(static function (Email $email): void {
                 Assert::assertSame('noreply@refleet.test', $email->getFrom()[0]->getAddress());
                 Assert::assertSame('Refleet', $email->getFrom()[0]->getName());
                 Assert::assertSame('support@refleet.test', $email->getReplyTo()[0]->getAddress());
@@ -57,9 +57,7 @@ final class EmailNotificationServiceTest extends TestCase
                 Assert::assertSame('Welcome', $email->getSubject());
                 Assert::assertSame('<p>Hello<br>Visit <a href="https://example.com">Example</a></p>', $email->getHtmlBody());
                 Assert::assertSame("Hello\nVisit Example (https://example.com)", $email->getTextBody());
-
-                return true;
-            }));
+            });
 
         $this->logger
             ->expects($this->once())
@@ -187,16 +185,14 @@ final class EmailNotificationServiceTest extends TestCase
         $this->mailer
             ->expects($this->once())
             ->method('send')
-            ->with($this->callback(static function (Email $email) use ($htmlBody): bool {
+            ->willReturnCallback(static function (Email $email) use ($htmlBody): void {
                 Assert::assertSame('noreply@refleet.test', $email->getFrom()[0]->getAddress());
                 Assert::assertSame('support@refleet.test', $email->getReplyTo()[0]->getAddress());
                 Assert::assertSame('recipient@example.com', $email->getTo()[0]->getAddress());
                 Assert::assertSame('Template subject', $email->getSubject());
                 Assert::assertSame($htmlBody, $email->getHtmlBody());
                 Assert::assertSame("Hello\nVisit Example (https://example.com)", $email->getTextBody());
-
-                return true;
-            }));
+            });
 
         $this->logger
             ->expects($this->once())

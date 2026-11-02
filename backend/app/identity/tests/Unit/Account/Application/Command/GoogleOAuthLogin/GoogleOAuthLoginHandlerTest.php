@@ -62,7 +62,7 @@ final class GoogleOAuthLoginHandlerTest extends TestCase
         $this->accounts
             ->expects($this->once())
             ->method('save')
-            ->with($this->callback(static function (Account $account) use (&$savedAccount): bool {
+            ->willReturnCallback(static function (Account $account) use (&$savedAccount): void {
                 $savedAccount = $account;
 
                 Assert::assertSame('new.manager@example.com', $account->email());
@@ -70,9 +70,7 @@ final class GoogleOAuthLoginHandlerTest extends TestCase
                 Assert::assertSame(RoleEnum::USER, $account->role());
                 Assert::assertTrue($account->hasOAuthProvider(OAuthProvider::GOOGLE));
                 Assert::assertTrue($account->hasMarketingConsent());
-
-                return true;
-            }));
+            });
 
         $this->tokenGenerator
             ->expects($this->once())

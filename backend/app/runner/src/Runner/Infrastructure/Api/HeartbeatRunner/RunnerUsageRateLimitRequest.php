@@ -19,7 +19,7 @@ final readonly class RunnerUsageRateLimitRequest
         #[OA\Property(type: 'string', example: 'five_hour')]
         public string $window,
         #[Assert\Choice(choices: ['allowed', 'allowed_warning', 'rejected'])]
-        #[OA\Property(type: 'string', enum: ['allowed', 'allowed_warning', 'rejected'], example: 'allowed')]
+        #[OA\Property(type: 'string', example: 'allowed', enum: ['allowed', 'allowed_warning', 'rejected'])]
         public string $status,
         #[Assert\Range(min: 0, max: 1)]
         #[OA\Property(description: 'Share of the window already consumed, 0..1. Absent when the CLI build does not report it.', type: 'number', format: 'float', example: 0.42)]

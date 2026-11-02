@@ -46,21 +46,17 @@ final class CreateQualificationHandlerTest extends TestCase
         $this->qualifications
             ->expects($this->once())
             ->method('save')
-            ->with($this->callback(static function (Qualification $qualification) use (&$savedQualification): bool {
+            ->willReturnCallback(static function (Qualification $qualification) use (&$savedQualification): void {
                 $savedQualification = $qualification;
-
-                return true;
-            }));
+            });
 
         $savedTargets = null;
         $this->qualificationTargets
             ->expects($this->once())
             ->method('saveAll')
-            ->with($this->callback(static function (array $targets) use (&$savedTargets): bool {
+            ->willReturnCallback(static function (array $targets) use (&$savedTargets): void {
                 $savedTargets = $targets;
-
-                return true;
-            }));
+            });
 
         // Act
         $result = ($this->handler)(new CreateQualificationCommand(
@@ -126,11 +122,9 @@ final class CreateQualificationHandlerTest extends TestCase
         $this->qualifications
             ->expects($this->once())
             ->method('save')
-            ->with($this->callback(static function (Qualification $qualification) use (&$savedQualification): bool {
+            ->willReturnCallback(static function (Qualification $qualification) use (&$savedQualification): void {
                 $savedQualification = $qualification;
-
-                return true;
-            }));
+            });
         $this->qualificationTargets->expects($this->once())->method('saveAll');
 
         // Act

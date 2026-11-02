@@ -27,11 +27,9 @@ final class StartCliAuthorizationHandlerTest extends TestCase
         $repository
             ->expects($this->once())
             ->method('save')
-            ->with($this->callback(static function (CliAuthorization $authorization) use (&$saved): bool {
+            ->willReturnCallback(static function (CliAuthorization $authorization) use (&$saved): void {
                 $saved = $authorization;
-
-                return true;
-            }));
+            });
         $handler = new StartCliAuthorizationHandler($repository, new CliAuthorizationCodeGenerator());
 
         // Act

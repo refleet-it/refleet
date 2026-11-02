@@ -45,11 +45,9 @@ final class HeartbeatRunnerHandlerTest extends TestCase
         $this->runners
             ->expects($this->once())
             ->method('save')
-            ->with($this->callback(static function (Runner $runner) use (&$saved): bool {
+            ->willReturnCallback(static function (Runner $runner) use (&$saved): void {
                 $saved = $runner;
-
-                return true;
-            }));
+            });
 
         // Act
         $result = ($this->handler)(new HeartbeatRunnerCommand(
@@ -129,11 +127,9 @@ final class HeartbeatRunnerHandlerTest extends TestCase
         $saved = null;
         $this->runners
             ->method('save')
-            ->with($this->callback(static function (Runner $runner) use (&$saved): bool {
+            ->willReturnCallback(static function (Runner $runner) use (&$saved): void {
                 $saved = $runner;
-
-                return true;
-            }));
+            });
 
         // Act
         $result = ($this->handler)(new HeartbeatRunnerCommand(
@@ -184,11 +180,9 @@ final class HeartbeatRunnerHandlerTest extends TestCase
         $saved = null;
         $this->runners
             ->method('save')
-            ->with($this->callback(static function (Runner $runner) use (&$saved): bool {
+            ->willReturnCallback(static function (Runner $runner) use (&$saved): void {
                 $saved = $runner;
-
-                return true;
-            }));
+            });
 
         // Act
         $result = ($this->handler)(new HeartbeatRunnerCommand(
