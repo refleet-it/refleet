@@ -12,6 +12,7 @@ use App\Identity\Account\Domain\Account\Enum\AccountStatusEnum;
 use App\Identity\Account\Domain\Account\Enum\OAuthProvider;
 use App\Identity\Account\Domain\Account\Enum\RoleEnum;
 use App\Identity\Account\Domain\Account\Exception\AccountNotActiveException;
+use App\Identity\Account\Domain\Account\Exception\SelfRegistrationNotAllowedException;
 use App\Identity\Account\Domain\Account\Model\Account;
 use App\Identity\Account\Domain\Account\Policy\AccountMergingPolicy;
 use App\Identity\Account\Domain\Account\Repository\AccountRepositoryInterface;
@@ -31,6 +32,7 @@ use Zenstruck\Foundry\Test\Factories;
 #[UsesClass(TokensDto::class)]
 #[UsesClass(AccountMergingPolicy::class)]
 #[UsesClass(RefreshTokenGenerator::class)]
+#[UsesClass(SelfRegistrationNotAllowedException::class)]
 final class GoogleOAuthLoginHandlerTest extends TestCase
 {
     use Factories;
@@ -38,6 +40,8 @@ final class GoogleOAuthLoginHandlerTest extends TestCase
     private AccountRepositoryInterface&MockObject $accounts;
 
     private TokenGenerator&MockObject $tokenGenerator;
+
+    private LoggerInterface $logger;
 
     private GoogleOAuthLoginHandler $handler;
 
@@ -259,19 +263,103 @@ final class GoogleOAuthLoginHandlerTest extends TestCase
         Assert::assertTrue($account->status()->isDeactivated());
     }
 
+    #[Test]
+    public function throws_when_email_is_unknown_and_sign_up_is_closed(): void
+    {
+        // Arrange
+        $command = new GoogleOAuthLoginCommand(
+            email: 'stranger@example.com',
+            googleId: 'google-user-6',
+            marketingConsent: false,
+        );
+
+        $this->accounts
+            ->expects($this->once())
+            ->method('findByEmail')
+            ->with($command->email)
+            ->willReturn(null);
+
+        $this->accounts
+            ->expects($this->never())
+            ->method('save');
+
+        $this->tokenGenerator
+            ->expects($this->never())
+            ->method('generate');
+
+        // Act
+        $exception = null;
+        try {
+            ($this->handlerWithSignUpClosed())($command);
+        } catch (\Throwable $throwable) {
+            $exception = $throwable;
+        }
+
+        // Assert
+        Assert::assertInstanceOf(SelfRegistrationNotAllowedException::class, $exception);
+    }
+
+    #[Test]
+    public function signs_in_existing_account_when_sign_up_is_closed(): void
+    {
+        // A closed instance refuses new accounts, not the people who already have one —
+        // otherwise closing sign-up would lock out every account made through OAuth.
+        // Arrange
+        $account = AccountFactory::new([
+            'status' => AccountStatusEnum::ACTIVE,
+        ])->withoutPersisting()->create();
+        $account->addOAuthProvider(OAuthProvider::GOOGLE);
+
+        $command = new GoogleOAuthLoginCommand(
+            email: $account->email(),
+            googleId: 'google-user-7',
+            marketingConsent: false,
+        );
+
+        $this->accounts
+            ->expects($this->once())
+            ->method('findByEmail')
+            ->with($command->email)
+            ->willReturn($account);
+
+        $this->tokenGenerator
+            ->expects($this->once())
+            ->method('generate')
+            ->with($this->identicalTo($account))
+            ->willReturn('jwt-closed-instance');
+
+        // Act
+        $result = ($this->handlerWithSignUpClosed())($command);
+
+        // Assert
+        Assert::assertSame('jwt-closed-instance', $result->jwtToken);
+        Assert::assertNotSame('', $result->refreshToken);
+    }
+
     #[\Override]
     protected function setUp(): void
     {
         $this->accounts = $this->createMock(AccountRepositoryInterface::class);
         $this->tokenGenerator = $this->createMock(TokenGenerator::class);
-        $logger = $this->createStub(LoggerInterface::class);
+        $this->logger = $this->createStub(LoggerInterface::class);
 
-        $this->handler = new GoogleOAuthLoginHandler(
+        $this->handler = $this->handlerWith(allowSignup: true);
+    }
+
+    private function handlerWithSignUpClosed(): GoogleOAuthLoginHandler
+    {
+        return $this->handlerWith(allowSignup: false);
+    }
+
+    private function handlerWith(bool $allowSignup): GoogleOAuthLoginHandler
+    {
+        return new GoogleOAuthLoginHandler(
             $this->accounts,
             $this->tokenGenerator,
             new RefreshTokenGenerator(),
             new AccountMergingPolicy(),
-            $logger,
+            $this->logger,
+            $allowSignup,
         );
     }
 }
