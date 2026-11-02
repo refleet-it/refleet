@@ -6,6 +6,7 @@ namespace App\Tests\Unit\File\File\Infrastructure\Api;
 
 use App\File\File\Infrastructure\Api\UploadFileResponse;
 use OpenApi\Attributes as OA;
+use OpenApi\Undefined;
 use PHPUnit\Framework\Assert;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
@@ -158,8 +159,11 @@ final class UploadFileResponseTest extends TestCase
         $metadata = [];
         foreach ($properties as $property) {
             Assert::assertInstanceOf(OA\Property::class, $property);
+            // An attribute argument that was never passed holds swagger-php's sentinel, not
+            // null. Ask the library whether the value is its default instead of matching the
+            // sentinel's string form, which changed shape in swagger-php 6.
             $format = $property->format;
-            if (\is_string($format) && \str_contains($format, 'Generator::UNDEFINED')) {
+            if (Undefined::isDefault($format)) {
                 $format = null;
             }
 
