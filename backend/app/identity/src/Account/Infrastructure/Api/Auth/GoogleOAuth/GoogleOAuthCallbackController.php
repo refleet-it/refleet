@@ -116,7 +116,7 @@ final readonly class GoogleOAuthCallbackController
     {
         $response = new JsonResponse([
             'token' => [
-                'jwtToken' => null !== $tokensDto ? $tokensDto->jwtToken : '',
+                'jwtToken' => $tokensDto->jwtToken ?? '',
             ],
         ], Response::HTTP_OK);
 

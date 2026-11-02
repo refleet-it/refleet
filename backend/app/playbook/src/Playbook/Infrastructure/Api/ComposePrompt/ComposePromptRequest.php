@@ -21,7 +21,7 @@ final readonly class ComposePromptRequest
     public function __construct(
         #[Assert\NotBlank]
         #[Assert\Choice(choices: ['change', 'qualification'])]
-        #[OA\Property(description: 'What the prompt is for; every selected playbook must apply to it.', type: 'string', enum: ['change', 'qualification'], example: 'change')]
+        #[OA\Property(description: 'What the prompt is for; every selected playbook must apply to it.', type: 'string', example: 'change', enum: ['change', 'qualification'])]
         public string $appliesTo,
         #[Assert\All([new Assert\NotBlank(), new Assert\Regex('/^'.PlaybookIdRequirement::PATTERN.'$/')])]
         #[Assert\Count(max: 50)]

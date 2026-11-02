@@ -44,11 +44,9 @@ final class CreateApiKeyHandlerTest extends TestCase
         $this->apiKeys
             ->expects($this->once())
             ->method('save')
-            ->with($this->callback(static function (ApiKey $apiKey) use (&$savedApiKey): bool {
+            ->willReturnCallback(static function (ApiKey $apiKey) use (&$savedApiKey): void {
                 $savedApiKey = $apiKey;
-
-                return true;
-            }));
+            });
 
         // Act
         $result = ($this->handler)(new CreateApiKeyCommand($account->id()->asString(), 'CI key'));

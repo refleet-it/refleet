@@ -67,7 +67,7 @@ final readonly class RefreshController
 
         $response = new JsonResponse([
             'token' => [
-                'jwtToken' => null !== $tokensDto ? $tokensDto->jwtToken : '',
+                'jwtToken' => $tokensDto->jwtToken ?? '',
             ],
         ], Response::HTTP_OK);
 

@@ -42,11 +42,9 @@ final class CreateOrganizationHandlerTest extends TestCase
         $this->organizations
             ->expects($this->once())
             ->method('save')
-            ->with($this->callback(static function (Organization $organization) use (&$savedOrganization): bool {
+            ->willReturnCallback(static function (Organization $organization) use (&$savedOrganization): void {
                 $savedOrganization = $organization;
-
-                return true;
-            }));
+            });
 
         $this->employees
             ->expects($this->once())
@@ -76,11 +74,9 @@ final class CreateOrganizationHandlerTest extends TestCase
         $this->employees
             ->expects($this->once())
             ->method('save')
-            ->with($this->callback(static function (Employee $employee) use (&$savedEmployee): bool {
+            ->willReturnCallback(static function (Employee $employee) use (&$savedEmployee): void {
                 $savedEmployee = $employee;
-
-                return true;
-            }));
+            });
 
         // Act
         $result = ($this->handler)(new CreateOrganizationCommand($accountId->asString(), 'owner@example.com', 'Acme Inc.'));

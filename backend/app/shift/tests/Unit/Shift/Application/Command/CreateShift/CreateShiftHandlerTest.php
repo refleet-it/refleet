@@ -55,21 +55,17 @@ final class CreateShiftHandlerTest extends TestCase
         $this->shiftTargets
             ->expects($this->once())
             ->method('saveAll')
-            ->with($this->callback(static function (array $targets) use (&$savedTargets): bool {
+            ->willReturnCallback(static function (array $targets) use (&$savedTargets): void {
                 $savedTargets = $targets;
-
-                return true;
-            }));
+            });
 
         $savedShift = null;
         $this->shifts
             ->expects($this->once())
             ->method('save')
-            ->with($this->callback(static function (Shift $shift) use (&$savedShift): bool {
+            ->willReturnCallback(static function (Shift $shift) use (&$savedShift): void {
                 $savedShift = $shift;
-
-                return true;
-            }));
+            });
 
         // Act
         $result = ($this->handler)(new CreateShiftCommand(
@@ -138,11 +134,9 @@ final class CreateShiftHandlerTest extends TestCase
         $this->shifts
             ->expects($this->once())
             ->method('save')
-            ->with($this->callback(static function (Shift $shift) use (&$savedShift): bool {
+            ->willReturnCallback(static function (Shift $shift) use (&$savedShift): void {
                 $savedShift = $shift;
-
-                return true;
-            }));
+            });
         $this->shiftTargets->expects($this->once())->method('saveAll');
 
         // Act
@@ -257,11 +251,9 @@ final class CreateShiftHandlerTest extends TestCase
         $savedTargets = null;
         $this->shiftTargets
             ->method('saveAll')
-            ->with($this->callback(static function (array $targets) use (&$savedTargets): bool {
+            ->willReturnCallback(static function (array $targets) use (&$savedTargets): void {
                 $savedTargets = $targets;
-
-                return true;
-            }));
+            });
 
         // Act
         ($this->handler)(new CreateShiftCommand(

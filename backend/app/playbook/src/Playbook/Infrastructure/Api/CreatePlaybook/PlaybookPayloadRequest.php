@@ -25,11 +25,11 @@ final readonly class PlaybookPayloadRequest
         public string $name,
         #[Assert\NotBlank]
         #[Assert\Choice(choices: ['task', 'rule'])]
-        #[OA\Property(type: 'string', enum: ['task', 'rule'], example: 'task')]
+        #[OA\Property(type: 'string', example: 'task', enum: ['task', 'rule'])]
         public string $kind,
         #[Assert\NotBlank]
         #[Assert\Choice(choices: ['change', 'qualification', 'both'])]
-        #[OA\Property(type: 'string', enum: ['change', 'qualification', 'both'], example: 'change')]
+        #[OA\Property(type: 'string', example: 'change', enum: ['change', 'qualification', 'both'])]
         public string $appliesTo,
         #[Assert\NotBlank]
         #[Assert\Length(max: PlaybookDefinition::BODY_MAX_LENGTH)]
@@ -54,7 +54,7 @@ final readonly class PlaybookPayloadRequest
         #[OA\Property(description: 'Tasks only: the {{name}} placeholders the body takes.', type: 'array', items: new OA\Items(type: 'object'))]
         public array $parameters = [],
         #[Assert\Choice(choices: ['claude', 'kiro'])]
-        #[OA\Property(description: 'Tasks only: the agent to preselect.', type: 'string', enum: ['claude', 'kiro'], nullable: true)]
+        #[OA\Property(description: 'Tasks only: the agent to preselect.', type: 'string', nullable: true, enum: ['claude', 'kiro'])]
         public ?string $engine = null,
         #[Assert\Length(max: 100)]
         #[OA\Property(description: 'Tasks only: the model id to preselect.', type: 'string', example: 'claude-opus-5', nullable: true)]
