@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Tests\Unit\Identity\Account\Domain\Account\Repository;
 
+use App\Identity\Account\Domain\Account\Enum\OAuthProvider;
 use App\Identity\Account\Domain\Account\Model\Account;
 use App\Identity\Account\Domain\Account\Repository\AccountRepositoryInterface;
 use App\Identity\Account\Infrastructure\Persistence\DoctrineAccountRepository;
@@ -34,6 +35,14 @@ final class AccountRepositoryInterfaceTest extends TestCase
         ],
         'findByEmail' => [
             'parameters' => [
+                ['string', false],
+            ],
+            'return' => [Account::class, true],
+            'doc' => [],
+        ],
+        'findByOAuthIdentity' => [
+            'parameters' => [
+                [OAuthProvider::class, false],
                 ['string', false],
             ],
             'return' => [Account::class, true],

@@ -44,6 +44,23 @@ final class OAuthProviderTest extends TestCase
     }
 
     #[Test]
+    public function oidc_provider_is_oidc_and_neither_local_nor_google(): void
+    {
+        // Arrange
+        $provider = OAuthProvider::OIDC;
+
+        // Act
+        $isOidc = $provider->isOidc();
+        $isGoogle = $provider->isGoogle();
+        $isLocal = $provider->isLocal();
+
+        // Assert
+        Assert::assertTrue($isOidc);
+        Assert::assertFalse($isGoogle);
+        Assert::assertFalse($isLocal);
+    }
+
+    #[Test]
     public function exactly_one_provider_predicate_is_true_for_each_case(): void
     {
         // Arrange
@@ -55,14 +72,16 @@ final class OAuthProviderTest extends TestCase
             $truthTable[$case->value] = [
                 $case->isLocal(),
                 $case->isGoogle(),
+                $case->isOidc(),
             ];
         }
 
         // Assert
         Assert::assertSame(
             [
-                'local' => [true, false],
-                'google' => [false, true],
+                'local' => [true, false, false],
+                'google' => [false, true, false],
+                'oidc' => [false, false, true],
             ],
             $truthTable,
         );
@@ -77,13 +96,16 @@ final class OAuthProviderTest extends TestCase
         // Act
         $local = OAuthProvider::from('local');
         $google = OAuthProvider::from('google');
+        $oidc = OAuthProvider::from('oidc');
         $invalidTryFrom = OAuthProvider::tryFrom($invalid);
 
         // Assert
         Assert::assertSame('local', OAuthProvider::LOCAL->value);
         Assert::assertSame('google', OAuthProvider::GOOGLE->value);
+        Assert::assertSame('oidc', OAuthProvider::OIDC->value);
         Assert::assertSame(OAuthProvider::LOCAL, $local);
         Assert::assertSame(OAuthProvider::GOOGLE, $google);
+        Assert::assertSame(OAuthProvider::OIDC, $oidc);
         Assert::assertNull($invalidTryFrom);
     }
 

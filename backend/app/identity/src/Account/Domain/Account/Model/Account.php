@@ -14,6 +14,7 @@ use App\Identity\Account\Domain\Account\Event\EmailVerified;
 use App\Identity\Account\Domain\Account\Event\PasswordChanged;
 use App\Identity\Account\Domain\Account\Event\PasswordResetCompleted;
 use App\Identity\Account\Domain\Account\Event\PasswordResetRequested;
+use App\Identity\Account\Domain\Account\Exception\AccountOAuthIdentityConflictException;
 use App\Identity\Account\Domain\Account\ValueObject\AccountId;
 use App\Identity\Account\Domain\Account\ValueObject\Email;
 use App\Identity\Account\Domain\Account\ValueObject\HashedPassword;
@@ -85,6 +86,12 @@ class Account extends AggregateRoot
     #[ORM\OneToMany(targetEntity: EmailVerificationToken::class, mappedBy: 'account', cascade: ['persist', 'remove'])]
     private Collection $emailVerificationTokens;
 
+    /**
+     * @var Collection<int, AccountOAuthIdentity>
+     */
+    #[ORM\OneToMany(targetEntity: AccountOAuthIdentity::class, mappedBy: 'account', cascade: ['persist', 'remove'])]
+    private Collection $oauthIdentities;
+
     private function __construct(
         AccountId $id,
         Email $email,
@@ -107,6 +114,7 @@ class Account extends AggregateRoot
         $this->refreshTokens = new ArrayCollection();
         $this->passwordResetTokens = new ArrayCollection();
         $this->emailVerificationTokens = new ArrayCollection();
+        $this->oauthIdentities = new ArrayCollection();
     }
 
     public function deactivate(): void
@@ -312,6 +320,50 @@ class Account extends AggregateRoot
             OAuthProvider::from(...),
             $this->oauthProviders
         );
+    }
+
+    /**
+     * Records the identifier a provider gave this account, alongside the provider itself.
+     *
+     * Idempotent on (provider, subject): a returning sign-in links nothing new. A second
+     * subject for the same provider would mean the issuer changed its mind about who this
+     * person is, which the unique constraint cannot catch on its own — so it is refused here
+     * rather than quietly attaching a second identity to one account.
+     */
+    public function linkOAuthIdentity(Id $id, OAuthProvider $provider, string $subject): void
+    {
+        if ($this->hasOAuthIdentity($provider, $subject)) {
+            return;
+        }
+
+        if (null !== $this->oauthIdentityFor($provider)) {
+            throw new AccountOAuthIdentityConflictException($provider->value);
+        }
+
+        $this->oauthIdentities->add(AccountOAuthIdentity::link($id, $this, $provider, $subject));
+        $this->addOAuthProvider($provider);
+    }
+
+    public function hasOAuthIdentity(OAuthProvider $provider, string $subject): bool
+    {
+        foreach ($this->oauthIdentities as $identity) {
+            if ($identity->matches($provider, $subject)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    public function oauthIdentityFor(OAuthProvider $provider): ?AccountOAuthIdentity
+    {
+        foreach ($this->oauthIdentities as $identity) {
+            if ($identity->provider() === $provider) {
+                return $identity;
+            }
+        }
+
+        return null;
     }
 
     /**

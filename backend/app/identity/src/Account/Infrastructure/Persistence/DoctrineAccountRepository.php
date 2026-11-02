@@ -5,7 +5,9 @@ declare(strict_types=1);
 namespace App\Identity\Account\Infrastructure\Persistence;
 
 use App\Identity\Account\Domain\Account\Enum\AccountStatusEnum;
+use App\Identity\Account\Domain\Account\Enum\OAuthProvider;
 use App\Identity\Account\Domain\Account\Model\Account;
+use App\Identity\Account\Domain\Account\Model\AccountOAuthIdentity;
 use App\Identity\Account\Domain\Account\Repository\AccountRepositoryInterface;
 use App\Shared\Domain\ValueObject\CursorListParameters;
 use App\Shared\Domain\ValueObject\CursorListResponse;
@@ -37,6 +39,16 @@ final readonly class DoctrineAccountRepository implements AccountRepositoryInter
         return $this->em
             ->getRepository(Account::class)
             ->findOneBy(['email' => \mb_strtolower($email)]);
+    }
+
+    #[\Override]
+    public function findByOAuthIdentity(OAuthProvider $provider, string $subject): ?Account
+    {
+        $identity = $this->em
+            ->getRepository(AccountOAuthIdentity::class)
+            ->findOneBy(['provider' => $provider, 'subject' => $subject]);
+
+        return $identity?->account();
     }
 
     #[\Override]
