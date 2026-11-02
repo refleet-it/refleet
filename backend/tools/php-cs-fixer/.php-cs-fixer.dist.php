@@ -39,6 +39,12 @@ return $config
     ->setRules([
         '@Symfony' => true,
         '@Symfony:risky' => true,
+        // php-cs-fixer 3.95 added declare_strict_types to @Symfony:risky configured as
+        // ['strategy' => 'remove'] — Symfony's own style does not use strict types, so the
+        // ruleset now strips `declare(strict_types=1);` from every file it touches. This
+        // codebase declares it everywhere, so the rule stays off: `add_when_missing` would
+        // also write it into config/reference.php, which is auto-generated.
+        'declare_strict_types' => false,
         'method_argument_space' => ['on_multiline' => 'ensure_fully_multiline', 'attribute_placement' => 'standalone'],
         'is_null' => true,
         'no_superfluous_elseif' => true,
