@@ -9,6 +9,7 @@ use App\Identity\Account\Application\Command\TokensDto;
 use App\Identity\Account\Infrastructure\Factory\AccessTokenCookieFactory;
 use App\Identity\Account\Infrastructure\Factory\RefreshTokenCookieFactory;
 use App\Identity\Account\Infrastructure\Service\GoogleOAuthClient;
+use App\Shared\Domain\Exception\AppException;
 use App\Shared\Domain\Exception\TooManyRequestsException;
 use App\Shared\Infrastructure\Security\RateLimiter;
 use OpenApi\Attributes as OA;
@@ -16,6 +17,7 @@ use Psr\Log\LoggerInterface;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
+use Symfony\Component\Messenger\Exception\HandlerFailedException;
 use Symfony\Component\Messenger\MessageBusInterface;
 use Symfony\Component\Messenger\Stamp\HandledStamp;
 use Symfony\Component\Routing\Attribute\Route;
@@ -29,6 +31,8 @@ use Symfony\Component\Routing\Attribute\Route;
         new OA\Response(response: Response::HTTP_OK, description: 'Successfully authenticated'),
         new OA\Response(response: Response::HTTP_BAD_REQUEST, description: 'Invalid OAuth data'),
         new OA\Response(response: Response::HTTP_UNAUTHORIZED, description: 'Authentication failed'),
+        new OA\Response(response: Response::HTTP_FORBIDDEN, description: 'This instance does not accept self-registration'),
+        new OA\Response(response: Response::HTTP_UNPROCESSABLE_ENTITY, description: 'Account is not active'),
         new OA\Response(response: Response::HTTP_TOO_MANY_REQUESTS, description: 'Too many callback attempts'),
     ]
 )]
@@ -72,15 +76,32 @@ final readonly class GoogleOAuthCallbackController
             $this->logger->error('Invalid JSON in Google OAuth callback: '.$e->getMessage());
 
             return new JsonResponse(['error' => self::ERROR_INVALID_BODY], Response::HTTP_BAD_REQUEST);
-        } catch (\RuntimeException $e) {
-            $this->logger->error('Google OAuth verification failed: '.$e->getMessage());
+        } catch (HandlerFailedException $handlerFailedException) {
+            $previous = $handlerFailedException->getPrevious();
 
-            return new JsonResponse(['error' => self::ERROR_AUTH_FAILED], Response::HTTP_UNAUTHORIZED);
+            // The 401 below answers "this instance cannot verify your token". An application
+            // exception from the handler says something else — the token verified and the
+            // instance declined — so it keeps the status it declares (403 when sign-up is
+            // closed, 422 for an inactive account) instead of being flattened into 401.
+            if ($previous instanceof AppException) {
+                throw $previous;
+            }
+
+            return $this->authenticationFailed($handlerFailedException);
+        } catch (\RuntimeException $e) {
+            return $this->authenticationFailed($e);
         } catch (\Throwable $e) {
             $this->logger->error('Unexpected error in Google OAuth callback: '.$e->getMessage());
 
             return new JsonResponse(['error' => self::ERROR_INTERNAL], Response::HTTP_INTERNAL_SERVER_ERROR);
         }
+    }
+
+    private function authenticationFailed(\Throwable $throwable): JsonResponse
+    {
+        $this->logger->error('Google OAuth verification failed: '.$throwable->getMessage());
+
+        return new JsonResponse(['error' => self::ERROR_AUTH_FAILED], Response::HTTP_UNAUTHORIZED);
     }
 
     private function handleRequest(Request $request): JsonResponse

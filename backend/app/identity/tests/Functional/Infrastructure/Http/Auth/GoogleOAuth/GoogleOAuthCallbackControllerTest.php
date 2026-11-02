@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Tests\Functional\Identity\Infrastructure\Http\Auth\GoogleOAuth;
 
 use App\Identity\Account\Application\Command\GoogleOAuthLogin\GoogleOAuthLoginCommand;
+use App\Identity\Account\Domain\Account\Exception\SelfRegistrationNotAllowedException;
 use App\Identity\Account\Infrastructure\Api\Auth\GoogleOAuth\GoogleOAuthCallbackController;
 use App\Identity\Account\Infrastructure\Service\GoogleOAuthClient;
 use PHPUnit\Framework\Assert;
@@ -14,6 +15,7 @@ use PHPUnit\Framework\Attributes\Test;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Messenger\Envelope;
+use Symfony\Component\Messenger\Exception\HandlerFailedException;
 use Symfony\Component\Messenger\MessageBusInterface;
 use Symfony\Component\Messenger\Stamp\HandledStamp;
 use Symfony\Contracts\HttpClient\HttpClientInterface;
@@ -82,6 +84,43 @@ final class GoogleOAuthCallbackControllerTest extends WebTestCase
         Assert::assertSame(Response::HTTP_UNAUTHORIZED, $client->getResponse()->getStatusCode());
         $response = \json_decode((string) $client->getResponse()->getContent(), true, flags: \JSON_THROW_ON_ERROR);
         Assert::assertSame('Authentication failed', $response['error'] ?? null);
+    }
+
+    #[AllowMockObjectsWithoutExpectations]
+    #[Test]
+    public function returns_forbidden_when_sign_up_is_closed_and_the_email_is_unknown(): void
+    {
+        // The token verified and the instance declined, which is not the same answer as
+        // "we could not verify you" — so this must not collapse into the 401 above.
+        // Arrange
+        $client = self::createClient();
+        $client->disableReboot();
+        $this->replaceGoogleClientWithStatusAndPayload(200, [
+            'aud' => 'google-client-id',
+            'email_verified' => true,
+            'email' => 'stranger@example.com',
+            'sub' => 'google-user-456',
+        ]);
+
+        $command = new GoogleOAuthLoginCommand('stranger@example.com', 'google-user-456');
+        $bus = $this->createMock(MessageBusInterface::class);
+        $bus
+            ->method('dispatch')
+            ->willThrowException(new HandlerFailedException(
+                new Envelope($command),
+                [new SelfRegistrationNotAllowedException()],
+            ));
+        self::getContainer()->set(MessageBusInterface::class, $bus);
+
+        // Act
+        $client->jsonRequest('POST', '/api/identity/auth/google/callback', [
+            'idToken' => 'valid-token',
+        ]);
+
+        // Assert
+        Assert::assertSame(Response::HTTP_FORBIDDEN, $client->getResponse()->getStatusCode());
+        $response = \json_decode((string) $client->getResponse()->getContent(), true, flags: \JSON_THROW_ON_ERROR);
+        Assert::assertSame('SELF_REGISTRATION_NOT_ALLOWED', $response['error'] ?? null);
     }
 
     #[AllowMockObjectsWithoutExpectations]

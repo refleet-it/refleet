@@ -41,7 +41,9 @@ verification email you cannot receive yet. Sign in at `https://<APP_DOMAIN>`, cr
 organisation, and invite everyone else from inside the application.
 
 Registration is closed by default, so an instance that is reachable from the internet does not
-hand out accounts to whoever finds it. Set `ALLOW_SIGNUP=true` to open it.
+hand out accounts to whoever finds it. Set `ALLOW_SIGNUP=true` to open it. This covers signing
+in with an external provider too: on a closed instance a provider that verifies an address
+still does not create an account for it, so the address has to be invited first.
 
 ## Connecting GitLab
 
