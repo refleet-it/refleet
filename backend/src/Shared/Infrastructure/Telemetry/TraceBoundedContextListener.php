@@ -20,7 +20,10 @@ final readonly class TraceBoundedContextListener
         $controller = $event->getController();
 
         if (\is_array($controller)) {
-            $controller = $controller[0] ?? null;
+            // A callable array is always [object|class, method], so index 0 is guaranteed —
+            // phpstan narrows getController() to non-empty-list&callable and rejects a
+            // null-coalesce here as dead code.
+            $controller = $controller[0];
         }
 
         $class = match (true) {
