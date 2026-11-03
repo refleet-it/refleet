@@ -52,7 +52,8 @@
     "symfony/validator": "7.4.*",
     "symfony/yaml": "7.4.*",
     "twig/extra-bundle": "^2.12|^3.0",
-    "twig/twig": "^3.0"
+    "twig/twig": "^3.0",
+    "web-token/jwt-library": "^4.2"
   },
   "require-dev": {
     "dama/doctrine-test-bundle": "^8.0",
