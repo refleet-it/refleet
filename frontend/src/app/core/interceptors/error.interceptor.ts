@@ -12,7 +12,15 @@ import { ApiError, ValidationError } from '../models/error.model';
 
 const SILENT_404_PATTERNS: string[] = [];
 
-const SILENT_ALL_ERRORS_PATTERNS = ['/files/upload', '/resend', '/identity/refresh'];
+// `/identity/auth/oidc` reports its own failures: the callback is a full-page status screen that
+// prints the API's message, and the url endpoint is a GET the sign-in screen handles in place.
+// A toast on top of either is the same failure told twice.
+const SILENT_ALL_ERRORS_PATTERNS = [
+  '/files/upload',
+  '/resend',
+  '/identity/refresh',
+  '/identity/auth/oidc',
+];
 
 const DEFAULT_ERROR_MESSAGE = 'An error occurred';
 

@@ -82,6 +82,38 @@
     </button>
   </div>
 
+  @if (providers().length) {
+    <div class="provider-actions" data-testid="auth-providers">
+      <div class="provider-divider"><span>or</span></div>
+
+      @for (provider of providers(); track provider.provider) {
+        <button
+          type="button"
+          hlmBtn
+          variant="outline"
+          class="w-full"
+          [disabled]="!!startingProvider()"
+          [attr.data-testid]="'provider-button-' + provider.provider"
+          (click)="startProviderLogin(provider)"
+        >
+          @if (startingProvider() === provider.provider) {
+            <ng-icon name="lucideLoader2" class="animate-spin" />
+          } @else {
+            <ng-icon name="lucideKeyRound" />
+          }
+          Continue with {{ labelFor(provider) }}
+        </button>
+      }
+
+      @if (providerError(); as message) {
+        <p class="provider-error" data-testid="provider-error">
+          <ng-icon name="lucideTriangleAlert" />
+          {{ message }}
+        </p>
+      }
+    </div>
+  }
+
   @if (allowsSignup()) {
     <div class="form-footer">
       <p>

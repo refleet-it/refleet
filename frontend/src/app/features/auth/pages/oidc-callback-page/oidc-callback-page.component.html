@@ -1,0 +1,28 @@
+<div class="status-container" data-testid="oidc-callback-page">
+  <div class="auth-header">
+    <h1>Signing in</h1>
+  </div>
+
+  <div class="status-content">
+    @if (error(); as message) {
+      <ng-icon name="lucideCircleX" style="font-size: 4rem; color: #e53e3e" />
+      <h2>Sign-in failed</h2>
+      <p data-testid="oidc-callback-error">{{ message }}</p>
+      <div class="form-actions">
+        <button
+          type="button"
+          hlmBtn
+          class="w-full"
+          data-testid="oidc-callback-back"
+          (click)="backToLogin()"
+        >
+          <ng-icon name="lucideArrowLeft" />
+          Back to login
+        </button>
+      </div>
+    } @else {
+      <ng-icon name="lucideLoader2" class="animate-spin" style="font-size: 3rem" />
+      <p>Finishing the sign-in with your identity provider…</p>
+    }
+  </div>
+</div>
