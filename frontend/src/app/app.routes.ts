@@ -16,6 +16,24 @@ import { errorRoutes } from './features/error/error.routes';
 
 export const routes: Routes = [
   {
+    // Outside the /auth subtree below, and not by accident: that subtree is GuestGuard'ed, and a
+    // browser coming back from an identity provider may already hold valid refresh cookies. The
+    // guard would bounce it to / with the authorization code unspent — see the component.
+    path: 'auth/oidc/callback',
+    loadComponent: () =>
+      import('./core/layouts/auth-layout/auth-layout.component').then(m => m.AuthLayoutComponent),
+    children: [
+      {
+        path: '',
+        title: 'Signing in',
+        loadComponent: () =>
+          import('./features/auth/pages/oidc-callback-page/oidc-callback-page.component').then(
+            m => m.OidcCallbackPageComponent
+          ),
+      },
+    ],
+  },
+  {
     path: 'auth',
     loadComponent: () =>
       import('./core/layouts/auth-layout/auth-layout.component').then(m => m.AuthLayoutComponent),

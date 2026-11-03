@@ -3,6 +3,17 @@ import { inject, Injectable } from '@angular/core';
 import { Observable, catchError, map, of, shareReplay } from 'rxjs';
 import { environment } from '../../../environments/environment';
 
+export interface AuthProvider {
+  /** `google` or `oidc` — which flow signs somebody in. */
+  provider: string;
+  /**
+   * What to call the provider on the button, or '' when the instance did not name it. An
+   * operator running Dex usually calls it after their company rather than after the protocol,
+   * and an empty label means the wording is ours to choose.
+   */
+  label: string;
+}
+
 export interface InstanceConfig {
   /** Whether visitors may create their own account. Self-hosted instances default to no. */
   allowSignup: boolean;
@@ -10,9 +21,16 @@ export interface InstanceConfig {
   supportEmail: string;
   /** Where this instance's terms and privacy policy live, or '' when it has none. */
   termsUrl: string;
+  /** The external providers this instance was configured with; empty means local accounts only. */
+  authProviders: AuthProvider[];
 }
 
-const CLOSED: InstanceConfig = { allowSignup: false, supportEmail: '', termsUrl: '' };
+const CLOSED: InstanceConfig = {
+  allowSignup: false,
+  supportEmail: '',
+  termsUrl: '',
+  authProviders: [],
+};
 
 /**
  * Settings that belong to the deployment rather than the build. One browser bundle serves
@@ -34,6 +52,13 @@ export class InstanceConfigService {
     .get<InstanceConfig>(`${environment.apiUrl}/instance`)
     .pipe(
       map(response => ({ ...CLOSED, ...response })),
+      // A template iterates this one, so anything other than a list has to become the empty
+      // case here rather than throwing inside the sign-in screen. An instance running a
+      // backend that predates the field simply omits it.
+      map(config => ({
+        ...config,
+        authProviders: Array.isArray(config.authProviders) ? config.authProviders : [],
+      })),
       catchError(() => of(CLOSED)),
       shareReplay({ bufferSize: 1, refCount: false })
     );
@@ -44,5 +69,9 @@ export class InstanceConfigService {
 
   allowsSignup(): Observable<boolean> {
     return this.config$.pipe(map(config => config.allowSignup));
+  }
+
+  authProviders(): Observable<AuthProvider[]> {
+    return this.config$.pipe(map(config => config.authProviders));
   }
 }

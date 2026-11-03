@@ -1,9 +1,11 @@
 import { provideHttpClient } from '@angular/common/http';
-import { provideHttpClientTesting } from '@angular/common/http/testing';
+import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
+import { DOCUMENT } from '@angular/common';
 import { PLATFORM_ID } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { Router } from '@angular/router';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { environment } from '../../../environments/environment';
 import { AuthService } from './auth.service';
 
 /**
@@ -111,5 +113,78 @@ describe('AuthService token handling', () => {
     service.updateToken(jwt({ sub: '1', email: 'a@refleet.it', role: 'user', exp }));
 
     expect(service.getTokenExpirationTime()).toBe(exp * 1000);
+  });
+});
+
+/**
+ * The sign-in screen hands this the whole handoff, so the two things worth pinning down are that
+ * the browser goes exactly where the API said and that the request carries credentials — without
+ * them the cookie that binds the flow to this browser is never stored, and the callback is
+ * refused with a state that looks perfectly valid.
+ */
+describe('AuthService OIDC handoff', () => {
+  let service: AuthService;
+  let httpMock: HttpTestingController;
+  const assign = vi.fn();
+
+  beforeEach(() => {
+    assign.mockReset();
+
+    TestBed.configureTestingModule({
+      providers: [
+        provideHttpClient(),
+        provideHttpClientTesting(),
+        { provide: Router, useValue: { navigate: vi.fn() } },
+        { provide: PLATFORM_ID, useValue: 'server' },
+        // A service never renders, so a stand-in document is enough here — and it is the only
+        // way to watch a departure that would otherwise take the test runner with it.
+        { provide: DOCUMENT, useValue: { location: { assign } } },
+      ],
+    });
+
+    service = TestBed.inject(AuthService);
+    httpMock = TestBed.inject(HttpTestingController);
+  });
+
+  afterEach(() => httpMock.verify());
+
+  it('sends the browser to the URL the API signed', () => {
+    service.startOidcLogin().subscribe();
+
+    const request = httpMock.expectOne(`${environment.apiUrl}/identity/auth/oidc/url`);
+    expect(request.request.method).toBe('GET');
+    expect(request.request.withCredentials).toBe(true);
+
+    request.flush({ url: 'https://sso.example.test/auth?state=signed' });
+
+    expect(assign).toHaveBeenCalledWith('https://sso.example.test/auth?state=signed');
+  });
+
+  it('goes nowhere when the instance will not start a flow', () => {
+    // A provider that is not configured answers 409, and leaving on that would land the
+    // visitor on an empty page instead of back on the sign-in screen with a reason.
+    let failed = false;
+    service.startOidcLogin().subscribe({ error: () => (failed = true) });
+
+    httpMock
+      .expectOne(`${environment.apiUrl}/identity/auth/oidc/url`)
+      .flush({ error: 'OIDC_NOT_CONFIGURED' }, { status: 409, statusText: 'Conflict' });
+
+    expect(failed).toBe(true);
+    expect(assign).not.toHaveBeenCalled();
+  });
+
+  it('posts the code and state to be exchanged, with credentials', () => {
+    service.loginWithOidc('the-code', 'the-state').subscribe({ error: () => undefined });
+
+    const request = httpMock.expectOne(`${environment.apiUrl}/identity/auth/oidc/callback`);
+    expect(request.request.method).toBe('POST');
+    expect(request.request.body).toEqual({ code: 'the-code', state: 'the-state' });
+    expect(request.request.withCredentials).toBe(true);
+
+    // An expiry an hour out, so the refresh timer the tap starts does not fire inside the test.
+    request.flush({
+      token: { jwtToken: jwt({ sub: '1', email: 'a@refleet.it', role: 'user', exp: inAnHour() }) },
+    });
   });
 });

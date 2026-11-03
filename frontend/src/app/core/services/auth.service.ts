@@ -1,5 +1,5 @@
 import { Injectable, inject, PLATFORM_ID, NgZone } from '@angular/core';
-import { isPlatformBrowser } from '@angular/common';
+import { isPlatformBrowser, DOCUMENT } from '@angular/common';
 import { HttpClient } from '@angular/common/http';
 import { Router } from '@angular/router';
 import {
@@ -44,6 +44,9 @@ export class AuthService {
   private router = inject(Router);
   private platformId = inject(PLATFORM_ID);
   private ngZone = inject(NgZone);
+  // Only for leaving the application entirely — an identity provider lives on another origin,
+  // so the Router cannot take us there.
+  private readonly document = inject(DOCUMENT);
 
   private currentUserSubject = new BehaviorSubject<User | null>(null);
   public currentUser$ = this.currentUserSubject.asObservable();
@@ -146,6 +149,59 @@ export class AuthService {
         {
           idToken,
           marketingConsent,
+        },
+        { withCredentials: true }
+      )
+      .pipe(
+        catchError(err => throwError(() => err)),
+        map(res => res.token),
+        tap(tokens => {
+          this.setTokens(tokens);
+          this.decodeAndSetUser(tokens.jwtToken);
+          this.startTokenRefreshTimer();
+          this.setAuthHint();
+        }),
+        switchMap(tokens =>
+          this.currentUser$.pipe(
+            filter((user): user is User => user !== null),
+            take(1),
+            map(() => tokens)
+          )
+        )
+      );
+  }
+
+  /**
+   * Starts a sign-in through this instance's OIDC provider and hands the browser over.
+   *
+   * The URL has to come from the API rather than be built here: it carries a signed `state`, and
+   * the same request is what sets the HttpOnly cookie the callback is checked against. Without
+   * `withCredentials` that cookie is never stored and the callback is refused — the API has no
+   * session to remember the flow in, so the cookie is what stops somebody completing a sign-in
+   * and handing the resulting code to a victim.
+   *
+   * Emits nothing on success, because on success this page is already on its way out. A caller
+   * only needs the error, which is a failure to even start.
+   */
+  startOidcLogin(): Observable<void> {
+    return this.http
+      .get<{ url: string }>(`${environment.apiUrl}/identity/auth/oidc/url`, {
+        withCredentials: true,
+      })
+      .pipe(
+        catchError(err => throwError(() => err)),
+        tap(response => this.document.location.assign(response.url)),
+        map(() => undefined)
+      );
+  }
+
+  loginWithOidc(code: string, state: string): Observable<AuthTokens> {
+    return this.http
+      .post<{ token: AuthTokens }>(
+        `${environment.apiUrl}/identity/auth/oidc/callback`,
+        {
+          code,
+          state,
         },
         { withCredentials: true }
       )

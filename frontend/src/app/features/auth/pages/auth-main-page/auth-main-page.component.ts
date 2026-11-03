@@ -1,4 +1,4 @@
-import { Component, inject, OnInit } from '@angular/core';
+import { Component, computed, inject, OnInit, signal } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { FormBuilder, FormGroup, Validators, ReactiveFormsModule } from '@angular/forms';
 import { CommonModule } from '@angular/common';
@@ -10,6 +10,7 @@ import {
   lucideTriangleAlert,
   lucideLoader2,
   lucideLogIn,
+  lucideKeyRound,
 } from '@ng-icons/lucide';
 import { HlmButton } from '@spartan-ng/helm/button';
 import { HlmInput } from '@spartan-ng/helm/input';
@@ -17,8 +18,23 @@ import { HlmCheckbox } from '@spartan-ng/helm/checkbox';
 import { HlmFieldImports } from '@spartan-ng/helm/field';
 
 import { AuthService } from '../../../../core/services/auth.service';
-import { InstanceConfigService } from '../../../../core/services/instance-config.service';
+import {
+  AuthProvider,
+  InstanceConfigService,
+} from '../../../../core/services/instance-config.service';
 import { PasswordInputComponent } from '../../../../shared/components/password-input/password-input.component';
+
+/**
+ * Providers this screen can actually start a flow for.
+ *
+ * `/instance` also reports `google` when an operator configured it, and it is left out on
+ * purpose: there is no browser flow for it. `AuthService.loginWithGoogle()` wants a finished
+ * `idToken` from a Google SDK this application does not load, and the API has no endpoint that
+ * would take an authorization code. A button for it would be a button that cannot work.
+ */
+const STARTABLE_PROVIDERS = ['oidc'];
+
+const DEFAULT_PROVIDER_LABEL = 'single sign-on';
 
 @Component({
   selector: 'app-auth-main-page',
@@ -35,7 +51,14 @@ import { PasswordInputComponent } from '../../../../shared/components/password-i
     PasswordInputComponent,
   ],
   providers: [
-    provideIcons({ lucideMail, lucideLock, lucideTriangleAlert, lucideLoader2, lucideLogIn }),
+    provideIcons({
+      lucideMail,
+      lucideLock,
+      lucideTriangleAlert,
+      lucideLoader2,
+      lucideLogIn,
+      lucideKeyRound,
+    }),
   ],
   templateUrl: './auth-main-page.component.html',
   styleUrl: './auth-main-page.component.scss',
@@ -44,6 +67,23 @@ export class AuthMainPageComponent implements OnInit {
   protected readonly allowsSignup = toSignal(inject(InstanceConfigService).allowsSignup(), {
     initialValue: false,
   });
+
+  private readonly configuredProviders = toSignal(inject(InstanceConfigService).authProviders(), {
+    initialValue: [] as AuthProvider[],
+  });
+
+  protected readonly providers = computed(() =>
+    this.configuredProviders().filter(provider => STARTABLE_PROVIDERS.includes(provider.provider))
+  );
+
+  /** Which provider is being handed off to, so its button alone shows the wait. */
+  protected readonly startingProvider = signal<string | null>(null);
+
+  /**
+   * ErrorInterceptor stays quiet on failed GETs because a screen that cannot load says so in
+   * place, and this is that in-place message.
+   */
+  protected readonly providerError = signal<string | null>(null);
 
   loginForm: FormGroup;
   isSubmitting = false;
@@ -91,5 +131,32 @@ export class AuthMainPageComponent implements OnInit {
 
   get isLoginButtonDisabled(): boolean {
     return this.loginForm.invalid || this.isSubmitting;
+  }
+
+  protected labelFor(provider: AuthProvider): string {
+    return provider.label || DEFAULT_PROVIDER_LABEL;
+  }
+
+  /**
+   * Hands the browser to the provider. The URL is the service's to fetch and follow — it carries
+   * a signed `state`, and the request that produces it is also what sets the cookie the callback
+   * is checked against, so neither half can be built here.
+   */
+  protected startProviderLogin(provider: AuthProvider): void {
+    if (this.startingProvider()) {
+      return;
+    }
+
+    this.providerError.set(null);
+    this.startingProvider.set(provider.provider);
+
+    this.authService.startOidcLogin().subscribe({
+      error: () => {
+        this.startingProvider.set(null);
+        this.providerError.set(
+          `Could not start the sign-in with ${this.labelFor(provider)}. Try again, or log in with your email address.`
+        );
+      },
+    });
   }
 }
