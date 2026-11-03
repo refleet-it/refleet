@@ -18,6 +18,7 @@ security:
         - { path: ^/api/identity/request-password-reset, roles: PUBLIC_ACCESS }
         - { path: ^/api/identity/reset-password, roles: PUBLIC_ACCESS }
         - { path: ^/api/identity/auth/google, roles: PUBLIC_ACCESS }
+        - { path: ^/api/identity/auth/oidc, roles: PUBLIC_ACCESS }
         # `refleet login`: the CLI has no credentials yet when it starts, and polls with a device secret
         - { path: ^/api/identity/cli-authorizations$, methods: [POST], roles: PUBLIC_ACCESS }
         - { path: ^/api/identity/cli-authorizations/claim$, methods: [POST], roles: PUBLIC_ACCESS }

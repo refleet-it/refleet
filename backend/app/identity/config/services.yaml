@@ -32,6 +32,10 @@ services:
     App\Shared\Domain\Service\ApiKeyValidatorInterface:
         alias: App\Identity\Account\Infrastructure\Security\DoctrineApiKeyValidator
 
+    # Ports owned by this context and consumed inside it
+    App\Identity\Account\Domain\Account\Service\OidcClientInterface:
+        alias: App\Identity\Account\Infrastructure\Service\OidcClient
+
     # Registers the shared domain-event dispatcher for this context's own connection only —
     # see App\Shared\Application\Event\DomainEventDispatcher.
     App\Shared\Application\Event\DomainEventDispatcher:

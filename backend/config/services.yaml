@@ -6,10 +6,27 @@
 # dialog and in the email footer, and used as reply-to. Most instances have none, so empty is
 # the default — the footer and the dialog then say nothing, and reply-to falls back to the
 # sender (EmailNotificationService). TERMS_URL is the same idea for legal pages.
+#
+# The external sign-in providers default to empty, which is what turns them off: an instance
+# that configures none offers local accounts only, and ConfiguredAuthProviders reports that
+# through /instance so the sign-in screen does not offer a button that cannot work. Defaults
+# rather than bare `%env()%` references on purpose — without them an unset variable breaks the
+# container at boot instead of disabling the provider, which is no way to not use a feature.
+# These live here rather than in the identity context because InstanceController is in Shared
+# and every application boots it.
 parameters:
     env(ALLOW_SIGNUP): 'false'
     env(SUPPORT_EMAIL): ''
     env(TERMS_URL): ''
+    env(GOOGLE_CLIENT_ID): ''
+    env(GOOGLE_CLIENT_SECRET): ''
+    env(OIDC_ISSUER_URL): ''
+    env(OIDC_CLIENT_ID): ''
+    env(OIDC_CLIENT_SECRET): ''
+    env(OIDC_PROVIDER_LABEL): ''
+    # openid is required; email is what an account is placed and matched on. profile only adds
+    # a display name. Dex also publishes `groups`, which Refleet has nothing to do with yet.
+    env(OIDC_SCOPES): 'openid email profile'
 
 services:
     _defaults:
