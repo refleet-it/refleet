@@ -60,6 +60,9 @@ final readonly class AccountMergingPolicy
     {
         return match ($provider) {
             OAuthProvider::GOOGLE => true,
+            // The OIDC client refuses a token whose email the issuer has not marked verified,
+            // so an account reaching this point has had its address confirmed by the issuer.
+            OAuthProvider::OIDC => true,
             OAuthProvider::LOCAL => false,
         };
     }

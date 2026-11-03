@@ -34,6 +34,7 @@ use Symfony\Component\Routing\Attribute\Route;
 final readonly class InstanceController
 {
     public function __construct(
+        private ConfiguredAuthProviders $authProviders,
         #[Autowire('%env(bool:ALLOW_SIGNUP)%')]
         private bool $allowSignup,
         #[Autowire('%env(SUPPORT_EMAIL)%')]
@@ -51,6 +52,9 @@ final readonly class InstanceController
             // affordance rather than pointing somewhere that is not its operator.
             'supportEmail' => $this->supportEmail,
             'termsUrl' => $this->termsUrl,
+            // Empty means local accounts only, which is every instance that has not been
+            // given an identity provider to talk to.
+            'authProviders' => $this->authProviders->toArray(),
         ]);
     }
 }

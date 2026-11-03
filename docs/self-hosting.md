@@ -55,6 +55,66 @@ or register an OAuth application and set `GITLAB_OAUTH_CLIENT_ID` and
 For a self-managed GitLab, point `GITLAB_OAUTH_BASE_URL` at it. The token path works against
 any GitLab without that setting; only the OAuth handshake needs to know the host.
 
+## Single sign-on
+
+If you already run an identity provider, Refleet can sign people in through it instead of
+handing out another password. Anything that speaks OpenID Connect works — Dex, Keycloak,
+Entra ID, Okta, Auth0 — because the instance is pointed at an issuer rather than at a product.
+
+Register Refleet as a confidential client at your provider, with
+`https://<APP_DOMAIN>/auth/oidc/callback` as its redirect URI, then:
+
+```bash
+# in .env
+OIDC_ISSUER_URL=https://sso.example.com
+OIDC_CLIENT_ID=refleet
+OIDC_CLIENT_SECRET=…
+# Optional: what the sign-in button says. Empty leaves the wording to the application.
+OIDC_PROVIDER_LABEL=Example SSO
+```
+
+The issuer URL is the base that serves `/.well-known/openid-configuration`, without a trailing
+slash — everything else, including the signing keys, comes out of that document, so a provider
+that rotates its keys needs no further attention. All three variables have to be set before the
+button appears; with any of them missing the instance offers local accounts only.
+
+Refleet asks for the `openid email profile` scopes and requires the provider to report the
+address as verified. Widen `OIDC_SCOPES` only if your provider needs a different scope to
+release those claims.
+
+Two things worth knowing before you point your colleagues at it:
+
+- **An account is matched by the address the first time and by the provider's subject
+  afterwards.** So somebody who already has a local account keeps it — their first single
+  sign-in attaches the provider to it rather than creating a second one — and a later change of
+  address at the provider does not strand them. The flip side is that an address which changes
+  hands upstream does not carry the previous owner's account with it, which is the point.
+- **Signing in is not the same as being in an organisation.** A brand-new SSO account belongs
+  to no organisation and the application will say so on its first request, so somebody still
+  has to invite that person into one. Group claims are not mapped to roles or organisations
+  yet.
+
+On a closed instance (`ALLOW_SIGNUP` unset or false) single sign-on does not create accounts at
+all: invite the address first, and the provider then takes over from the invitation.
+
+### Dex in particular
+
+Dex is the common case for putting SSO in front of several internal tools at once, and its
+static clients are configured where Dex is, not here:
+
+```yaml
+staticClients:
+    - id: refleet
+      name: Refleet
+      secretEnv: REFLEET_CLIENT_SECRET
+      redirectURIs:
+          - https://<APP_DOMAIN>/auth/oidc/callback
+```
+
+Its `allowedGroups` is a property of the connector, so it is shared by every client that Dex
+serves: restricting who may reach Refleet specifically means giving it its own connector, not
+its own client.
+
 ## Adding a runner
 
 Nothing happens until a runner claims the work. A runner needs no inbound network access — it
