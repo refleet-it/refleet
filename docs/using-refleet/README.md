@@ -125,9 +125,9 @@ therefore a statement about the work being finished, not about every merge reque
 
 While a merge request is open, Refleet also watches its pipeline, unless you turned that off when
 defining the change. If the pipeline fails because of the change, an agent pushes a fix to the same
-merge request, up to three times. If the failure has nothing to do with the change, the agent
+merge request, with up to three attempts. If the failure has nothing to do with the change, the agent
 leaves it alone and says why in a note on the merge request. Pipeline status appears as a second
-badge on the target, and hovering over it shows what the agent concluded.
+badge on the target, with the attempt count and what the agent last concluded beside it.
 
 | Pipeline badge | Meaning |
 | --- | --- |
@@ -135,13 +135,14 @@ badge on the target, and hovering over it shows what the agent concluded.
 | Pipeline passed | The pipeline passed |
 | Fixing pipeline | It failed and an agent is looking at it, or waiting for a runner to do so |
 | Pipeline failed | It failed, but not because of the change, so it is yours to look at |
-| Pipeline not fixed | The agent could not fix it, or ran out of attempts |
+| Pipeline not fixed | The agent could not fix it, or ran out of attempts. **Retry fix** gives it three more without touching the branch |
 | Pipeline inconclusive | It was cancelled, skipped or is waiting on a manual job |
 | No pipeline | None appeared within an hour, so the project may have no CI |
 | Stood down | Someone else pushed to the merge request, so Refleet stopped touching it |
 
-Pushing to a merge request yourself is always safe: Refleet notices and leaves it to you. Running
-the target again restarts the watch and the attempts. Logs from failed jobs are sent to the agent's
+Pushing to a merge request yourself is always safe: Refleet notices and leaves it to you. **Re-run**
+is a different thing from **Retry fix**: it does the whole change again and replaces what is on the
+branch, restarting the watch and the attempts. Logs from failed jobs are sent to the agent's
 provider; see [Fixing a failed pipeline](../runner/how-it-works.md#fixing-a-failed-pipeline).
 
 ## Playbooks

@@ -53,6 +53,10 @@ The runner then reads the failed jobs and their logs from GitLab itself, checks 
 request's branch and asks the agent whether the change caused the failure. If it did, the agent's
 edits go on as a new commit. If it did not, nothing is pushed and the merge request gets a note
 saying why. A new commit means a new pipeline, which is watched in turn, up to three attempts.
+A job that fails uses up an attempt too and the pipeline is sent again, because a failed job says
+nothing about the pipeline: GitLab may have rejected the push over its commit message, for
+example. Without a usable commit subject from the agent, the fix reuses the one already on the
+branch, which is known to satisfy the repository's rules.
 
 Refleet stops touching a merge request as soon as a person does. The runner reports the commit it
 pushed, and any other head means someone else has moved the branch. The head is checked again
