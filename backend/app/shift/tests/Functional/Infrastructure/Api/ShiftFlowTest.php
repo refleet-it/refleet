@@ -337,6 +337,80 @@ final class ShiftFlowTest extends WebTestCase
         Assert::assertSame('not_watched', $target['pipelineStatus'] ?? null);
     }
 
+    #[Test]
+    public function a_failed_fix_job_is_tried_again_and_a_fix_that_gave_up_can_be_retried_over_http(): void
+    {
+        // Arrange: a merge request whose pipeline went red
+        $client = self::createClient();
+        $runnerAuthHeader = $this->organizationWithRunnerKey($client);
+        $shiftId = $this->startedManualShift($client, []);
+        $headSha = \str_repeat('a', 40);
+        $change = $this->claimAndReportChange($client, $runnerAuthHeader, $headSha);
+        $red = ['1' => ['9' => ['state' => 'opened', 'headSha' => $headSha, 'pipelineId' => '77', 'pipelineSha' => $headSha, 'pipelineRef' => $change['branch'], 'pipelineStatus' => 'failed']]];
+
+        Assert::assertSame('waiting', $this->onlyTarget($client, $shiftId)['pipelineStatus'] ?? null);
+
+        // Act: the fix job fails, as when the repository's rules reject the push
+        $this->pollPipelines($red);
+        $this->drainCrossContextQueues();
+        $job = $this->claimPipelineFix($client, $runnerAuthHeader);
+        $client->jsonRequest('POST', \sprintf('/api/runner/jobs/%s/report', $job), [
+            'runnerId' => 'runner-fleet-02',
+            'outcome' => 'failure',
+            'summary' => 'Failed to fix the pipeline',
+            'errorMessage' => 'remote: GitLab: Commit message does not follow the pattern',
+        ], $runnerAuthHeader);
+        Assert::assertSame(200, $client->getResponse()->getStatusCode());
+        $this->drainCrossContextQueues();
+
+        // Assert: back in the queue with the reason showing and an attempt used
+        $target = $this->onlyTarget($client, $shiftId);
+        Assert::assertSame('waiting', $target['pipelineStatus'] ?? null);
+        Assert::assertSame(1, $target['pipelineFixAttempts'] ?? null);
+        Assert::assertSame(3, $target['pipelineFixMaxAttempts'] ?? null);
+        Assert::assertStringContainsString('Commit message', (string) ($target['pipelineSummary'] ?? ''));
+
+        // Act: the next poll sends the same pipeline again, and the agent finds nothing to do
+        $this->pollPipelines($red);
+        $this->drainCrossContextQueues();
+        $job = $this->claimPipelineFix($client, $runnerAuthHeader);
+        $client->jsonRequest('POST', \sprintf('/api/runner/jobs/%s/report', $job), [
+            'runnerId' => 'runner-fleet-02',
+            'outcome' => 'success',
+            'summary' => 'It only passes by skipping the test.',
+            'pipelineFixOutcome' => 'not_fixed',
+        ], $runnerAuthHeader);
+        $this->drainCrossContextQueues();
+        Assert::assertSame('gave_up', $this->onlyTarget($client, $shiftId)['pipelineStatus'] ?? null);
+
+        // Act: a person asks for another go
+        $targetId = $this->onlyTarget($client, $shiftId)['id'];
+        $client->jsonRequest('POST', \sprintf('/api/shifts/%s/targets/%s/pipeline-fix/retry', $shiftId, $targetId));
+
+        // Assert
+        Assert::assertSame(200, $client->getResponse()->getStatusCode());
+        $target = $this->onlyTarget($client, $shiftId);
+        Assert::assertSame('waiting', $target['pipelineStatus'] ?? null);
+        Assert::assertSame(0, $target['pipelineFixAttempts'] ?? null);
+
+        // Act / Assert: there is nothing left to retry now
+        $client->jsonRequest('POST', \sprintf('/api/shifts/%s/targets/%s/pipeline-fix/retry', $shiftId, $targetId));
+        Assert::assertSame(409, $client->getResponse()->getStatusCode());
+    }
+
+    /**
+     * @param array<string, string> $runnerAuthHeader
+     */
+    private function claimPipelineFix(\Symfony\Bundle\FrameworkBundle\KernelBrowser $client, array $runnerAuthHeader): string
+    {
+        $client->jsonRequest('POST', '/api/runner/jobs/claim', ['runnerId' => 'runner-fleet-02', 'supportedKinds' => ['pipeline_fix']], $runnerAuthHeader);
+        Assert::assertSame(200, $client->getResponse()->getStatusCode());
+        $claimed = $this->decode($client->getResponse());
+        Assert::assertSame('pipeline_fix', $claimed['kind'] ?? null);
+
+        return $claimed['jobId'];
+    }
+
     /**
      * @return array<string, string> the runner's auth header
      */

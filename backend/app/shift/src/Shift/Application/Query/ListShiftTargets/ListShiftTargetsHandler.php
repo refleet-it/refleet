@@ -61,6 +61,8 @@ final readonly class ListShiftTargetsHandler
             mergeRequestStatus: $target->mergeRequestStatus()->value,
             pipelineStatus: $target->pipelineStatus()->value,
             pipelineSummary: $target->pipelineSummary(),
+            pipelineFixAttempts: $target->pipelineFixAttempts(),
+            pipelineFixMaxAttempts: ShiftTarget::MAX_PIPELINE_FIXES,
             createdAt: $target->createdAt()->format('c'),
         );
     }

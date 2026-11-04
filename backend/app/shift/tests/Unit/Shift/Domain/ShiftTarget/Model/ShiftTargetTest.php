@@ -464,6 +464,90 @@ final class ShiftTargetTest extends TestCase
     }
 
     #[Test]
+    public function a_failed_job_uses_up_an_attempt_and_the_same_pipeline_is_sent_again(): void
+    {
+        $target = $this->watched();
+        Assert::assertTrue($target->observePipeline($this->pipeline('failed')));
+        $target->startPipelineFix(self::JOB, '77');
+
+        $target->recordPipelineFixResult(self::JOB, PipelineFixOutcomeEnum::JOB_FAILED, 'push rejected');
+
+        Assert::assertSame(PipelineStatusEnum::WAITING, $target->pipelineStatus());
+        Assert::assertSame(self::HEAD, $target->pipelineHeadSha());
+        Assert::assertSame('push rejected', $target->pipelineSummary());
+        Assert::assertNull($target->pipelineCheckedAt());
+        Assert::assertSame(1, $target->pipelineFixAttempts());
+        Assert::assertTrue($target->observePipeline($this->pipeline('failed')));
+    }
+
+    #[Test]
+    public function failed_jobs_stop_at_the_attempt_limit_and_keep_the_last_reason(): void
+    {
+        $target = $this->watched();
+
+        for ($attempt = 1; $attempt <= 3; ++$attempt) {
+            Assert::assertTrue($target->observePipeline($this->pipeline('failed')));
+            $target->startPipelineFix(self::JOB, '77');
+            $target->recordPipelineFixResult(self::JOB, PipelineFixOutcomeEnum::JOB_FAILED, 'push rejected '.$attempt);
+        }
+
+        Assert::assertFalse($target->observePipeline($this->pipeline('failed')));
+        Assert::assertSame(PipelineStatusEnum::GAVE_UP, $target->pipelineStatus());
+        Assert::assertSame('push rejected 3', $target->pipelineSummary());
+    }
+
+    #[Test]
+    public function a_failed_job_after_someone_pushed_stands_down_on_the_next_look(): void
+    {
+        $target = $this->watched();
+        $target->startPipelineFix(self::JOB, '77');
+        $target->recordPipelineFixResult(self::JOB, PipelineFixOutcomeEnum::JOB_FAILED, 'rejected: fetch first');
+
+        $observed = new MergeRequestPipeline(self::OTHER, '78', self::OTHER, 'refleet/change-1', 'failed');
+
+        Assert::assertFalse($target->observePipeline($observed));
+        Assert::assertSame(PipelineStatusEnum::STOOD_DOWN, $target->pipelineStatus());
+    }
+
+    #[Test]
+    public function a_retry_gives_a_target_that_gave_up_fresh_attempts_on_the_same_pipeline(): void
+    {
+        $target = $this->watched();
+        $target->startPipelineFix(self::JOB, '77');
+        $target->recordPipelineFixResult(self::JOB, PipelineFixOutcomeEnum::NOT_FIXED, 'no idea');
+        Assert::assertSame(PipelineStatusEnum::GAVE_UP, $target->pipelineStatus());
+
+        $target->retryPipelineFix();
+
+        Assert::assertSame(PipelineStatusEnum::WAITING, $target->pipelineStatus());
+        Assert::assertSame(0, $target->pipelineFixAttempts());
+        Assert::assertNull($target->pipelineSummary());
+        Assert::assertTrue($target->observePipeline($this->pipeline('failed')));
+    }
+
+    /**
+     * @return iterable<string, array{PipelineFixOutcomeEnum}>
+     */
+    public static function outcomesThatCannotBeRetried(): iterable
+    {
+        yield 'unrelated' => [PipelineFixOutcomeEnum::UNRELATED];
+        yield 'stood down' => [PipelineFixOutcomeEnum::SUPERSEDED];
+    }
+
+    #[Test]
+    #[DataProvider('outcomesThatCannotBeRetried')]
+    public function only_a_fix_that_gave_up_can_be_retried(PipelineFixOutcomeEnum $outcome): void
+    {
+        $target = $this->watched();
+        $target->startPipelineFix(self::JOB, '77');
+        $target->recordPipelineFixResult(self::JOB, $outcome, 'why');
+
+        $this->expectException(InvalidShiftTargetStateTransitionException::class);
+
+        $target->retryPipelineFix();
+    }
+
+    #[Test]
     public function fixed_without_a_commit_to_watch_gives_up_rather_than_watching_nothing(): void
     {
         $target = $this->watched();
