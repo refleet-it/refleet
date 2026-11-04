@@ -101,6 +101,9 @@ async function run(scenario: Scenario): Promise<Outcome> {
       if ('rev-parse' === args[0]) {
         return committed ? FIXED : (scenario.checkedOut ?? HEAD);
       }
+      if ('log' === args[0]) {
+        return 'feat: R2-1383 change PHP image\n';
+      }
       return 'diff' === args[0] ? (scenario.staged ?? 'src/foo.php\n') : '';
     };
     return Promise.resolve({ stdout: stdout(), stderr: '' });
@@ -145,6 +148,26 @@ test('a fix is committed on the merge request branch and pushed without force', 
   assert.equal(outcome.report['headSha'], FIXED);
   assert.equal(outcome.report['outcome'], 'success');
   assert.match(outcome.notes[0] ?? '', /pushed a fix for failed pipeline 77/);
+});
+
+function commitSubject(outcome: Outcome): string | undefined {
+  const commit = outcome.gitCalls.find(args => args.includes('commit'));
+  return commit?.[commit.indexOf('-m') + 1];
+}
+
+test('without a usable subject from the agent the fix reuses the one already on the branch', async () => {
+  for (const output of [
+    '{"causedByChange": true, "summary": "Fixed it."}',
+    `{"causedByChange": true, "summary": "Fixed it.", "commit": {"subject": "${'x'.repeat(73)}"}}`,
+  ]) {
+    assert.equal(commitSubject(await run({ output })), 'feat: R2-1383 change PHP image');
+  }
+});
+
+test('the agent\'s own subject is used when it gives one', async () => {
+  const outcome = await run({ output: '{"causedByChange": true, "summary": "Fixed it.", "commit": {"subject": "fix: R2-1383 add attribute"}}' });
+
+  assert.equal(commitSubject(outcome), 'fix: R2-1383 add attribute');
 });
 
 test('a merge request that moved on while queued costs no agent run and no git', async () => {

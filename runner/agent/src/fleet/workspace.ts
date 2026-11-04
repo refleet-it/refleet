@@ -202,6 +202,11 @@ export async function publishChange(
   return { branchName, mergeRequestUrl: mergeRequest.url, mergeRequestIid: mergeRequest.iid, headSha: await headOf(workspace, repoDir) };
 }
 
+/** The newest commit's subject, which has already got past whatever rules the repository's remote enforces. */
+export async function headSubject(workspace: Workspace, repoDir: string): Promise<string> {
+  return (await workspace.git(['log', '-1', '--format=%s'], repoDir)).stdout.trim();
+}
+
 /** Moves the checkout onto a merge request's branch, as syncRepo just fetched it, and returns its head. */
 export async function checkoutMergeRequestBranch(workspace: Workspace, repoDir: string, branchName: string): Promise<string> {
   await workspace.git(['checkout', '-f', '-B', branchName, `origin/${branchName}`], repoDir);

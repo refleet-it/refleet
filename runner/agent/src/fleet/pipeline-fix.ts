@@ -12,7 +12,7 @@ import {
 import type { JobRunnerDeps } from './job.js';
 import { errorMessage, recordUsage, type Report, tail } from './report.js';
 import { type PipelineFixResult, parsePipelineFixResult } from './result.js';
-import { checkoutMergeRequestBranch, pushPipelineFix, type WorkspaceProject } from './workspace.js';
+import { checkoutMergeRequestBranch, headSubject, pushPipelineFix, type WorkspaceProject } from './workspace.js';
 
 /** A pipeline can fail dozens of jobs at once, usually for one reason; the first few say enough. */
 const MAX_FAILED_JOBS_IN_PROMPT = 5;
@@ -133,7 +133,10 @@ async function publishFix(
     return;
   }
 
-  const wording = { subject: result.commit?.subject ?? `fix: repair failed pipeline ${spec.pipelineId}`, body: result.commit?.body ?? '' };
+  // Repositories can reject a push over its commit message, and only the repository knows the
+  // format. The agent's wording is the best guess; without it, inventing one is what gets
+  // rejected, whereas the commit already on the branch is known to have passed.
+  const wording = { subject: result.commit?.subject ?? (await headSubject(deps.workspace, repoDir)), body: result.commit?.body ?? '' };
   const headSha = await pushPipelineFix(deps.workspace, credentials, repoDir, spec.branchName, wording);
 
   if (null === headSha) {
