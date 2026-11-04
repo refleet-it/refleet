@@ -62,7 +62,7 @@
     "@angular/compiler-cli": "^21.2.26",
     "@lhci/cli": "^0.15.1",
     "@nx/js": "23.3.1",
-    "@schematics/angular": "^21.2.29",
+    "@schematics/angular": "^22.2.5",
     "@spartan-ng/cli": "^1.8.2",
     "@swc/helpers": "~0.5.18",
     "@types/express": "^5.0.6",
