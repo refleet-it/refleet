@@ -51,6 +51,7 @@ final readonly class GetShiftHandler
             changeModel: $criteria?->model(),
             changeRules: $criteria?->rules(),
             changeSources: \array_map(static fn (PromptSource $source): array => $source->toArray(), $criteria?->sources() ?? []),
+            changeFixPipelines: $criteria?->fixPipelines() ?? false,
             cancelReason: $shift->cancelReason(),
             targetCount: $targetCount,
             statusBreakdown: $breakdown,

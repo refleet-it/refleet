@@ -17,6 +17,8 @@ final readonly class ShiftTargetOverview
         public ?string $runnerName,
         public ?string $mergeRequestUrl,
         public string $mergeRequestStatus,
+        public string $pipelineStatus,
+        public ?string $pipelineSummary,
         public string $createdAt,
     ) {
     }

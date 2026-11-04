@@ -29,6 +29,9 @@ final readonly class ShiftTargetResultReportedMessageHandler
             branchName: $message->branchName,
             mergeRequestUrl: $message->mergeRequestUrl,
             mergeRequestIid: $message->mergeRequestIid,
+            headSha: $message->headSha,
+            pipelineFixJobId: $message->pipelineFixJobId,
+            pipelineFixOutcome: $message->pipelineFixOutcome,
         ));
     }
 }

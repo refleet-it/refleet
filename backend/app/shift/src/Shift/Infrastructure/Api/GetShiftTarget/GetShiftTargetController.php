@@ -87,6 +87,9 @@ final readonly class GetShiftTargetController
             'mergeRequestExternalIid' => $detail->mergeRequestExternalIid,
             'mergeRequestStatus' => $detail->mergeRequestStatus,
             'mergeRequestUpdatedAt' => $detail->mergeRequestUpdatedAt,
+            'pipelineStatus' => $detail->pipelineStatus,
+            'pipelineFixAttempts' => $detail->pipelineFixAttempts,
+            'pipelineSummary' => $detail->pipelineSummary,
             'createdAt' => $detail->createdAt,
         ];
     }

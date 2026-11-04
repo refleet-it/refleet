@@ -37,6 +37,28 @@ final class ShiftJobPayloadFactoryTest extends TestCase
     }
 
     #[Test]
+    public function a_pipeline_fix_carries_the_change_and_makes_declining_a_valid_answer(): void
+    {
+        $spec = ['branchName' => 'refleet/change-1', 'headSha' => 'abc', 'pipelineId' => '77', 'mergeRequestIid' => '9'];
+
+        $payload = $this->factory->buildPipelineFix(
+            ChangeCriteria::ai('Bump acme/legacy-lib to ^3.0', 'claude-opus-5', CriteriaEngineEnum::KIRO, 'Keep it small.'),
+            new ProjectSnapshot('1', 'group/project', 'Project', 'develop'),
+            $spec,
+        );
+        $prompt = (string) $payload['prompt'];
+
+        Assert::assertSame($spec, $payload['pipelineFix']);
+        Assert::assertSame('kiro', $payload['engine']);
+        Assert::assertSame('claude-opus-5', $payload['model']);
+        Assert::assertStringContainsString('Bump acme/legacy-lib to ^3.0', $prompt);
+        Assert::assertStringContainsString("## Rules\n\nKeep it small.", $prompt);
+        Assert::assertStringContainsString('git diff origin/develop...HEAD', $prompt);
+        Assert::assertStringContainsString('"causedByChange"', $prompt);
+        Assert::assertStringContainsString('Never make the pipeline pass by disabling, skipping or', $prompt);
+    }
+
+    #[Test]
     public function defaults_the_engine_to_claude(): void
     {
         $payload = $this->factory->build(ChangeCriteria::ai('Bump acme/legacy-lib to ^3.0'), new ProjectSnapshot('1', 'group/project', 'Project', null));

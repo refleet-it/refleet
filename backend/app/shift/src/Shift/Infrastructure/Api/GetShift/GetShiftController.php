@@ -76,6 +76,7 @@ final readonly class GetShiftController
             'changeModel' => $detail->changeModel,
             'changeRules' => $detail->changeRules,
             'changeSources' => $detail->changeSources,
+            'changeFixPipelines' => $detail->changeFixPipelines,
             'cancelReason' => $detail->cancelReason,
             'targetCount' => $detail->targetCount,
             'statusBreakdown' => $detail->statusBreakdown,

@@ -26,6 +26,8 @@ services:
         alias: App\Shared\Infrastructure\Http\Internal\HttpOrganizationContextProvider
     App\Shared\Domain\Service\MergeRequestStateReaderInterface:
         alias: App\Shared\Infrastructure\Http\Internal\HttpMergeRequestStateReader
+    App\Shared\Domain\Service\MergeRequestPipelineReaderInterface:
+        alias: App\Shared\Infrastructure\Http\Internal\HttpMergeRequestPipelineReader
     App\Shared\Domain\Service\RunnerDirectoryInterface:
         alias: App\Shared\Infrastructure\Http\Internal\HttpRunnerDirectory
     App\Shared\Domain\Service\ProjectCatalogInterface:

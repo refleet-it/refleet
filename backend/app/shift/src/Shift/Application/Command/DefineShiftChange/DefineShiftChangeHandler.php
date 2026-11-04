@@ -36,6 +36,7 @@ final readonly class DefineShiftChangeHandler
                 $engine,
                 $command->changeRules,
                 \array_map(PromptSource::fromArray(...), $command->changeSources),
+                $command->changeFixPipelines,
             ),
         };
 

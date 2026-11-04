@@ -29,6 +29,7 @@ final readonly class ShiftDetail
         public ?string $changeModel,
         public ?string $changeRules,
         public array $changeSources,
+        public bool $changeFixPipelines,
         public ?string $cancelReason,
         public int $targetCount,
         public array $statusBreakdown,

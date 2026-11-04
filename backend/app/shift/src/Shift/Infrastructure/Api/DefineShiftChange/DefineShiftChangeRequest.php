@@ -45,6 +45,8 @@ final readonly class DefineShiftChangeRequest
         #[Assert\Count(max: 50)]
         #[OA\Property(description: 'Which playbooks the prompt and rules were composed from, for display only — the text above is what actually runs.', type: 'array', items: new OA\Items(type: 'object'))]
         public ?array $changeSources = null,
+        #[OA\Property(description: 'Watch the pipeline on each merge request and let an agent push a fix when it fails because of the change. On unless turned off.', type: 'boolean', example: true)]
+        public bool $changeFixPipelines = true,
     ) {
     }
 }

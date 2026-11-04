@@ -9,8 +9,11 @@ use App\Shared\Domain\ValueObject\ProjectSnapshot;
 use App\Shift\Shift\Domain\Shift\ValueObject\OrganizationId;
 use App\Shift\Shift\Domain\Shift\ValueObject\ShiftId;
 use App\Shift\Shift\Domain\ShiftTarget\Enum\MergeRequestStatusEnum;
+use App\Shift\Shift\Domain\ShiftTarget\Enum\PipelineFixOutcomeEnum;
+use App\Shift\Shift\Domain\ShiftTarget\Enum\PipelineStatusEnum;
 use App\Shift\Shift\Domain\ShiftTarget\Enum\ShiftTargetStatusEnum;
 use App\Shift\Shift\Domain\ShiftTarget\Exception\InvalidShiftTargetStateTransitionException;
+use App\Shift\Shift\Domain\ShiftTarget\ValueObject\MergeRequestPipeline;
 use App\Shift\Shift\Domain\ShiftTarget\ValueObject\ProjectId;
 use App\Shift\Shift\Domain\ShiftTarget\ValueObject\ShiftTargetId;
 use Doctrine\DBAL\Types\Types;
@@ -22,21 +25,31 @@ use Doctrine\ORM\Mapping as ORM;
  * aggregate would create lock/optimistic-locking contention. Does not record domain
  * events (bulk creation of dozens of targets would be noise on the bus).
  *
- * @SuppressWarnings("PHPMD.TooManyFields") Tracks two independent sub-lifecycles
- * (change, merge request) as flattened columns - no Doctrine Embeddables in this
+ * @SuppressWarnings("PHPMD.TooManyFields") Tracks independent sub-lifecycles
+ * (change, merge request, pipeline) as flattened columns - no Doctrine Embeddables in this
  * codebase - plus one state transition method per lifecycle step.
  * @SuppressWarnings("PHPMD.TooManyMethods") The same cause seen from the other side:
  * every flattened column needs an accessor, and PHPMD counts those as real methods
  * because they carry no "get" or "set" prefix.
+ * @SuppressWarnings("PHPMD.TooManyPublicMethods") Same cause as TooManyMethods.
+ * @SuppressWarnings("PHPMD.ExcessiveClassComplexity") Each sub-lifecycle's transitions and
+ * guards live here because this is the aggregate they have to stay consistent within.
  */
 #[ORM\Entity]
 #[ORM\Table(name: 'shift_targets', schema: 'shift')]
 #[ORM\Index(name: 'idx_shift_targets_shift_id_status', columns: ['shift_id', 'status'])]
 #[ORM\Index(name: 'idx_shift_targets_organization_id', columns: ['organization_id'])]
 #[ORM\Index(name: 'idx_shift_targets_status_mr_checked_at', columns: ['status', 'merge_request_checked_at'])]
+#[ORM\Index(name: 'idx_shift_targets_pipeline_checked_at', columns: ['pipeline_status', 'pipeline_checked_at'])]
 #[ORM\UniqueConstraint(name: 'uniq_shift_targets_shift_project', columns: ['shift_id', 'project_id'])]
 class ShiftTarget extends AggregateRoot
 {
+    /** Each attempt is an agent run and a commit on someone's merge request, so this stays low. */
+    private const int MAX_PIPELINE_FIXES = 3;
+
+    /** How long a merge request may go without a pipeline before the project is taken to have no CI. */
+    private const string NO_PIPELINE_AFTER = '-1 hour';
+
     #[ORM\Id]
     #[ORM\Column(type: Types::GUID, unique: true)]
     private string $id;
@@ -111,6 +124,32 @@ class ShiftTarget extends AggregateRoot
     #[ORM\Column(name: 'merge_request_checked_at', type: Types::DATETIME_IMMUTABLE, nullable: true)]
     private ?\DateTimeImmutable $mergeRequestCheckedAt = null;
 
+    #[ORM\Column(name: 'pipeline_status', type: Types::STRING, enumType: PipelineStatusEnum::class, options: ['default' => 'not_watched'])]
+    private PipelineStatusEnum $pipelineStatus = PipelineStatusEnum::NOT_WATCHED;
+
+    /** The commit Refleet itself last pushed; a merge request at any other head has moved on without it. */
+    #[ORM\Column(name: 'pipeline_head_sha', type: Types::STRING, length: 64, nullable: true)]
+    private ?string $pipelineHeadSha = null;
+
+    #[ORM\Column(name: 'pipeline_watch_started_at', type: Types::DATETIME_IMMUTABLE, nullable: true)]
+    private ?\DateTimeImmutable $pipelineWatchStartedAt = null;
+
+    #[ORM\Column(name: 'pipeline_checked_at', type: Types::DATETIME_IMMUTABLE, nullable: true)]
+    private ?\DateTimeImmutable $pipelineCheckedAt = null;
+
+    #[ORM\Column(name: 'pipeline_fix_attempts', type: Types::INTEGER, options: ['default' => 0])]
+    private int $pipelineFixAttempts = 0;
+
+    #[ORM\Column(name: 'pipeline_fix_job_id', type: Types::GUID, nullable: true)]
+    private ?string $pipelineFixJobId = null;
+
+    /** Kept across re-runs: a pipeline already sent to an agent must never be sent again. */
+    #[ORM\Column(name: 'pipeline_last_fixed_id', type: Types::STRING, length: 64, nullable: true)]
+    private ?string $pipelineLastFixedId = null;
+
+    #[ORM\Column(name: 'pipeline_summary', type: Types::TEXT, nullable: true)]
+    private ?string $pipelineSummary = null;
+
     #[ORM\Column(name: 'created_at', type: Types::DATETIME_IMMUTABLE)]
     private \DateTimeImmutable $createdAt;
 
@@ -155,9 +194,13 @@ class ShiftTarget extends AggregateRoot
      * The runner reports the merge request it opened together with the outcome, so the
      * target lands in MERGE_REQUEST_OPEN already knowing where that MR is. A success
      * without one means the agent found nothing to change — settled, but nothing to
-     * review.
+     * review. The pipeline is only watched when the runner reported the commit it pushed:
+     * without that there is no telling Refleet's head from someone else's, so a runner too
+     * old to report it simply leaves the merge request unwatched.
+     *
+     * @SuppressWarnings("PHPMD.BooleanArgumentFlag") The shift's own setting, read by the caller.
      */
-    public function recordChangeSuccess(string $summary, ?string $branchName, string $runnerName, ?string $mergeRequestUrl = null, ?string $mergeRequestIid = null): void
+    public function recordChangeSuccess(string $summary, ?string $branchName, string $runnerName, ?string $mergeRequestUrl = null, ?string $mergeRequestIid = null, ?string $headSha = null, bool $watchPipeline = false): void
     {
         $this->guardStatus([ShiftTargetStatusEnum::CHANGE_IN_PROGRESS], 'record change success');
 
@@ -178,6 +221,10 @@ class ShiftTarget extends AggregateRoot
         $this->mergeRequestStatus = MergeRequestStatusEnum::OPEN;
         $this->mergeRequestOpenedAt ??= new \DateTimeImmutable();
         $this->mergeRequestCheckedAt = new \DateTimeImmutable();
+
+        if ($watchPipeline && null !== $headSha && null !== $mergeRequestIid) {
+            $this->watchPipelineOf($headSha);
+        }
     }
 
     public function recordChangeFailure(string $error, string $runnerName): void
@@ -205,6 +252,9 @@ class ShiftTarget extends AggregateRoot
         $this->changeSummary = null;
         $this->changeStartedAt = new \DateTimeImmutable();
         $this->changeCompletedAt = null;
+        $this->stopWatchingPipeline();
+        $this->pipelineFixAttempts = 0;
+        $this->pipelineSummary = null;
     }
 
     /**
@@ -245,6 +295,7 @@ class ShiftTarget extends AggregateRoot
         $this->status = ShiftTargetStatusEnum::COMPLETED;
         $this->mergeRequestStatus = MergeRequestStatusEnum::MERGED;
         $this->mergeRequestMergedAt = new \DateTimeImmutable();
+        $this->stopWatchingPipeline();
     }
 
     public function recordMergeRequestClosed(): void
@@ -254,6 +305,87 @@ class ShiftTarget extends AggregateRoot
         $this->status = ShiftTargetStatusEnum::MERGE_REQUEST_CLOSED;
         $this->mergeRequestStatus = MergeRequestStatusEnum::CLOSED;
         $this->mergeRequestClosedAt = new \DateTimeImmutable();
+        $this->stopWatchingPipeline();
+    }
+
+    public function recordPipelineChecked(): void
+    {
+        $this->pipelineCheckedAt = new \DateTimeImmutable();
+    }
+
+    /**
+     * Takes in what GitLab reports and returns true when an agent should look at a failed
+     * pipeline. Anything that does not clearly belong to the commit Refleet pushed is not a
+     * reason to act: a head it did not push means a person has got involved, and a pipeline
+     * from an earlier commit says nothing about this one.
+     */
+    public function observePipeline(MergeRequestPipeline $observed): bool
+    {
+        if (PipelineStatusEnum::WAITING !== $this->pipelineStatus) {
+            return false;
+        }
+
+        if ($observed->headSha !== $this->pipelineHeadSha) {
+            $this->pipelineStatus = PipelineStatusEnum::STOOD_DOWN;
+
+            return false;
+        }
+
+        if (!$observed->isOfHead() || $observed->pipelineId === $this->pipelineLastFixedId) {
+            if ($this->pipelineWatchStartedAt < new \DateTimeImmutable(self::NO_PIPELINE_AFTER)) {
+                $this->pipelineStatus = PipelineStatusEnum::NO_PIPELINE;
+            }
+
+            return false;
+        }
+
+        return match ($observed->pipelineStatus) {
+            'success' => $this->settlePipeline(PipelineStatusEnum::PASSED),
+            'failed' => $this->pipelineFixAttempts < self::MAX_PIPELINE_FIXES || $this->settlePipeline(PipelineStatusEnum::GAVE_UP),
+            'canceled', 'canceling', 'skipped', 'manual' => $this->settlePipeline(PipelineStatusEnum::INCONCLUSIVE),
+            default => false,
+        };
+    }
+
+    public function startPipelineFix(string $jobId, string $pipelineId): void
+    {
+        $this->guardStatus([ShiftTargetStatusEnum::MERGE_REQUEST_OPEN], 'start pipeline fix');
+
+        $this->pipelineStatus = PipelineStatusEnum::FIXING;
+        $this->pipelineFixJobId = $jobId;
+        $this->pipelineLastFixedId = $pipelineId;
+        ++$this->pipelineFixAttempts;
+    }
+
+    /**
+     * Ignored unless the job is still this target's current fix: a re-run, a merge or a
+     * close during the fix has already decided what happens next, and a late report must
+     * not undo it.
+     */
+    public function recordPipelineFixResult(string $jobId, PipelineFixOutcomeEnum $outcome, string $summary, ?string $headSha = null): void
+    {
+        if (
+            ShiftTargetStatusEnum::MERGE_REQUEST_OPEN !== $this->status
+            || PipelineStatusEnum::FIXING !== $this->pipelineStatus
+            || $jobId !== $this->pipelineFixJobId
+        ) {
+            return;
+        }
+
+        $this->pipelineFixJobId = null;
+        $this->pipelineSummary = $summary;
+
+        if (PipelineFixOutcomeEnum::FIXED === $outcome && null !== $headSha) {
+            $this->watchPipelineOf($headSha);
+
+            return;
+        }
+
+        $this->pipelineStatus = match ($outcome) {
+            PipelineFixOutcomeEnum::UNRELATED => PipelineStatusEnum::UNRELATED,
+            PipelineFixOutcomeEnum::SUPERSEDED => PipelineStatusEnum::STOOD_DOWN,
+            default => PipelineStatusEnum::GAVE_UP,
+        };
     }
 
     public function cancel(): void
@@ -263,6 +395,7 @@ class ShiftTarget extends AggregateRoot
         }
 
         $this->status = ShiftTargetStatusEnum::CANCELLED;
+        $this->stopWatchingPipeline();
     }
 
     public function isTerminal(): bool
@@ -373,6 +506,64 @@ class ShiftTarget extends AggregateRoot
     public function createdAt(): \DateTimeImmutable
     {
         return $this->createdAt;
+    }
+
+    public function pipelineStatus(): PipelineStatusEnum
+    {
+        return $this->pipelineStatus;
+    }
+
+    public function pipelineHeadSha(): ?string
+    {
+        return $this->pipelineHeadSha;
+    }
+
+    public function pipelineFixAttempts(): int
+    {
+        return $this->pipelineFixAttempts;
+    }
+
+    public function pipelineFixJobId(): ?string
+    {
+        return $this->pipelineFixJobId;
+    }
+
+    public function pipelineCheckedAt(): ?\DateTimeImmutable
+    {
+        return $this->pipelineCheckedAt;
+    }
+
+    public function pipelineSummary(): ?string
+    {
+        return $this->pipelineSummary;
+    }
+
+    private function watchPipelineOf(string $headSha): void
+    {
+        $this->pipelineStatus = PipelineStatusEnum::WAITING;
+        $this->pipelineHeadSha = $headSha;
+        $this->pipelineWatchStartedAt = new \DateTimeImmutable();
+        $this->pipelineFixJobId = null;
+    }
+
+    /**
+     * A settled outcome such as PASSED stays readable on a merged merge request; only a
+     * watch still in progress is called off.
+     */
+    private function stopWatchingPipeline(): void
+    {
+        $this->pipelineFixJobId = null;
+
+        if (\in_array($this->pipelineStatus, [PipelineStatusEnum::WAITING, PipelineStatusEnum::FIXING], true)) {
+            $this->pipelineStatus = PipelineStatusEnum::NOT_WATCHED;
+        }
+    }
+
+    private function settlePipeline(PipelineStatusEnum $status): false
+    {
+        $this->pipelineStatus = $status;
+
+        return false;
     }
 
     /**

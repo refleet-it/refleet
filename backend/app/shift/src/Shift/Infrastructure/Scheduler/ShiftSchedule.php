@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Shift\Shift\Infrastructure\Scheduler;
 
+use App\Shift\Shift\Application\Command\PollMergeRequestPipelines\PollMergeRequestPipelinesCommand;
 use App\Shift\Shift\Application\Command\PollOpenMergeRequests\PollOpenMergeRequestsCommand;
 use Symfony\Component\Scheduler\Attribute\AsSchedule;
 use Symfony\Component\Scheduler\RecurringMessage;
@@ -33,6 +34,7 @@ final class ShiftSchedule implements ScheduleProviderInterface
     public function getSchedule(): Schedule
     {
         return $this->schedule ??= (new Schedule())
-            ->add(RecurringMessage::every(self::POLL_INTERVAL, new PollOpenMergeRequestsCommand()));
+            ->add(RecurringMessage::every(self::POLL_INTERVAL, new PollOpenMergeRequestsCommand()))
+            ->add(RecurringMessage::every(self::POLL_INTERVAL, new PollMergeRequestPipelinesCommand()));
     }
 }
