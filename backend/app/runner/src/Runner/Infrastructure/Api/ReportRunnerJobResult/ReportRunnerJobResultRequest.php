@@ -44,6 +44,12 @@ final readonly class ReportRunnerJobResultRequest
         #[Assert\Length(max: 64)]
         #[OA\Property(description: 'For kind=change jobs: the merge request IID within its project.', type: 'string', example: '42')]
         public ?string $mergeRequestIid = null,
+        #[Assert\Length(max: 64)]
+        #[OA\Property(description: "For kind=change and kind=pipeline_fix jobs: the commit the runner pushed. Without it the merge request's pipeline is not watched.", type: 'string', example: '6104942438c14ec7bd21c6cd5bd995272b3faff6')]
+        public ?string $headSha = null,
+        #[Assert\Choice(choices: ['fixed', 'unrelated', 'superseded', 'not_fixed'])]
+        #[OA\Property(description: 'For kind=pipeline_fix jobs: what came of looking at the failed pipeline.', type: 'string', example: 'fixed', enum: ['fixed', 'unrelated', 'superseded', 'not_fixed'])]
+        public ?string $pipelineFixOutcome = null,
     ) {
     }
 }

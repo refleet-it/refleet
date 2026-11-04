@@ -61,6 +61,8 @@ final readonly class ReportRunnerJobResultController
             branchName: $payload->branchName,
             mergeRequestUrl: $payload->mergeRequestUrl,
             mergeRequestIid: $payload->mergeRequestIid,
+            headSha: $payload->headSha,
+            pipelineFixOutcome: $payload->pipelineFixOutcome,
         ))->last(HandledStamp::class);
 
         /** @var ReportedRunnerJobResult $reported */

@@ -27,7 +27,7 @@ final readonly class ClaimRunnerJobHandler
 
         $kinds = null !== $command->supportedKinds
             ? \array_map(RunnerJobKindEnum::from(...), $command->supportedKinds)
-            : RunnerJobKindEnum::cases();
+            : RunnerJobKindEnum::claimedByDefault();
 
         $modes = null !== $command->supportedModes
             ? \array_map(CriteriaModeEnum::from(...), $command->supportedModes)

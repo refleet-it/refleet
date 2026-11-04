@@ -23,6 +23,8 @@ final readonly class ReportRunnerJobResultCommand implements CommandInterface
         public ?string $branchName = null,
         public ?string $mergeRequestUrl = null,
         public ?string $mergeRequestIid = null,
+        public ?string $headSha = null,
+        public ?string $pipelineFixOutcome = null,
     ) {
     }
 }

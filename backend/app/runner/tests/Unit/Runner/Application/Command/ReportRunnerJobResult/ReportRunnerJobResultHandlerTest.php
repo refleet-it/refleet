@@ -159,6 +159,76 @@ final class ReportRunnerJobResultHandlerTest extends TestCase
     }
 
     #[Test]
+    public function a_pipeline_fix_reports_to_shift_marked_with_its_own_job_id(): void
+    {
+        // Arrange
+        $organizationId = OrganizationId::generate();
+        $job = $this->claimedJob($organizationId, RunnerJobKindEnum::PIPELINE_FIX);
+        $this->runnerJobs->method('findById')->willReturn($job);
+
+        $dispatched = null;
+        $this->bus
+            ->expects($this->once())
+            ->method('dispatch')
+            ->willReturnCallback(static function (object $message) use (&$dispatched): Envelope {
+                $dispatched = $message;
+
+                return new Envelope($message);
+            });
+
+        // Act
+        ($this->handler)(new ReportRunnerJobResultCommand(
+            jobId: $job->id()->asString(),
+            runnerId: 'runner-1',
+            organizationId: $organizationId->asString(),
+            outcome: 'success',
+            summary: 'Fixed the types',
+            headSha: 'abc',
+            pipelineFixOutcome: 'fixed',
+        ));
+
+        // Assert
+        Assert::assertInstanceOf(ShiftTargetResultReportedMessage::class, $dispatched);
+        Assert::assertSame($job->id()->asString(), $dispatched->pipelineFixJobId);
+        Assert::assertSame('fixed', $dispatched->pipelineFixOutcome);
+        Assert::assertSame('abc', $dispatched->headSha);
+    }
+
+    #[Test]
+    public function a_change_is_not_mistaken_for_a_pipeline_fix(): void
+    {
+        // Arrange
+        $organizationId = OrganizationId::generate();
+        $job = $this->claimedJob($organizationId, RunnerJobKindEnum::CHANGE);
+        $this->runnerJobs->method('findById')->willReturn($job);
+
+        $dispatched = null;
+        $this->bus
+            ->expects($this->once())
+            ->method('dispatch')
+            ->willReturnCallback(static function (object $message) use (&$dispatched): Envelope {
+                $dispatched = $message;
+
+                return new Envelope($message);
+            });
+
+        // Act
+        ($this->handler)(new ReportRunnerJobResultCommand(
+            jobId: $job->id()->asString(),
+            runnerId: 'runner-1',
+            organizationId: $organizationId->asString(),
+            outcome: 'success',
+            summary: 'Done',
+            headSha: 'abc',
+        ));
+
+        // Assert
+        Assert::assertInstanceOf(ShiftTargetResultReportedMessage::class, $dispatched);
+        Assert::assertNull($dispatched->pipelineFixJobId);
+        Assert::assertSame('abc', $dispatched->headSha);
+    }
+
+    #[Test]
     public function a_non_claimed_job_short_circuits_and_never_touches_the_bus(): void
     {
         // Arrange
