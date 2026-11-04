@@ -78,7 +78,7 @@ caller's organisation, or null if they have none.
 and disconnects an organisation's GitLab account; `/api/gitlab/connection/oauth/start` and
 `/oauth/complete` do the same through gitlab.com's OAuth authorization-code flow, the default in
 the UI. Merge request status is not pushed to Refleet: the backend polls GitLab for the merge
-requests it is waiting on, so no webhook has to be registered or reachable.
+requests it is waiting on and for their pipelines, so no webhook has to be registered or reachable.
 
 **Projects** — `/api/projects` lists and registers the repositories an organisation works on.
 
