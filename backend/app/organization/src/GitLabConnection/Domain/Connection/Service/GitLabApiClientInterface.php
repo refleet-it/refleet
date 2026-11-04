@@ -31,6 +31,14 @@ interface GitLabApiClientInterface
     public function listMergeRequestStates(string $baseUrl, string $accessToken, string $externalProjectId, array $iids): array;
 
     /**
+     * Reads one merge request whole. Its own call per merge request because the list
+     * endpoint does not carry `head_pipeline`.
+     *
+     * @return array<mixed>
+     */
+    public function getMergeRequest(string $baseUrl, string $accessToken, string $externalProjectId, string $iid): array;
+
+    /**
      * Deletes every group-level webhook pointing at $webhookUrl; a no-op when there is
      * none, and when GitLab refuses group hooks outright (Premium/Ultimate only).
      */
