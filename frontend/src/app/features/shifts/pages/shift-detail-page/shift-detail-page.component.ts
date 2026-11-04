@@ -2,6 +2,7 @@ import { Component, DestroyRef, inject, OnInit, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { FormsModule } from '@angular/forms';
+import { HlmCheckboxImports } from '@spartan-ng/helm/checkbox';
 import { HttpErrorResponse } from '@angular/common/http';
 import { interval, Observable, of, Subscription, switchMap } from 'rxjs';
 import { NgIcon, provideIcons } from '@ng-icons/core';
@@ -42,6 +43,9 @@ import {
   AGENT_WORKING_SHIFT_TARGET_STATUSES,
   ARCHIVABLE_SHIFT_STATUSES,
   DefineShiftChangePayload,
+  PIPELINE_STATUS_BADGE_VARIANTS,
+  PIPELINE_STATUS_DESCRIPTIONS,
+  PIPELINE_STATUS_LABELS,
   RERUNNABLE_SHIFT_TARGET_STATUSES,
   SHIFT_STATUS_BADGE_VARIANTS,
   SHIFT_STATUS_LABELS,
@@ -71,6 +75,7 @@ interface DefineChangeForm {
   changeModel: AiModel | '';
   changeRules: string;
   changeSources: PromptSource[];
+  changeFixPipelines: boolean;
 }
 
 const EMPTY_AVAILABLE_MODELS: AvailableModels = { claude: [], kiro: [] };
@@ -81,6 +86,7 @@ const EMPTY_CHANGE_FORM: DefineChangeForm = {
   changeModel: '',
   changeRules: '',
   changeSources: [],
+  changeFixPipelines: true,
 };
 
 @Component({
@@ -88,6 +94,7 @@ const EMPTY_CHANGE_FORM: DefineChangeForm = {
   standalone: true,
   imports: [
     FormsModule,
+    HlmCheckboxImports,
     RouterLink,
     NgIcon,
     HlmButton,
@@ -120,6 +127,8 @@ export class ShiftDetailPageComponent implements OnInit {
 
   protected readonly statusLabels = SHIFT_STATUS_LABELS;
   protected readonly targetStatusLabels = SHIFT_TARGET_STATUS_LABELS;
+  protected readonly pipelineStatusLabels = PIPELINE_STATUS_LABELS;
+  protected readonly pipelineStatusBadgeVariants = PIPELINE_STATUS_BADGE_VARIANTS;
   protected readonly targetStatusDescriptions = SHIFT_TARGET_STATUS_DESCRIPTIONS;
   protected readonly criteriaEngineLabels = CRITERIA_ENGINE_LABELS;
 
@@ -215,6 +224,10 @@ export class ShiftDetailPageComponent implements OnInit {
 
   targetStatusBadgeVariant(status: ShiftTargetStatus): StatusBadgeVariant {
     return SHIFT_TARGET_STATUS_BADGE_VARIANTS[status];
+  }
+
+  pipelineStatusTooltip(target: ShiftTargetOverview): string {
+    return target.pipelineSummary ?? PIPELINE_STATUS_DESCRIPTIONS[target.pipelineStatus];
   }
 
   isAgentWorkingOnTarget(status: ShiftTargetStatus): boolean {
@@ -507,6 +520,7 @@ export class ShiftDetailPageComponent implements OnInit {
       changeModel: shift.changeModel ?? '',
       changeRules: shift.changeRules ?? '',
       changeSources: shift.changeSources ?? [],
+      changeFixPipelines: shift.changeFixPipelines,
     };
   }
 
@@ -522,6 +536,7 @@ export class ShiftDetailPageComponent implements OnInit {
       ...(form.changeModel ? { changeModel: form.changeModel } : {}),
       ...(form.changeRules.trim() ? { changeRules: form.changeRules } : {}),
       changeSources: form.changeSources,
+      changeFixPipelines: form.changeFixPipelines,
     };
   }
 

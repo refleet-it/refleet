@@ -109,13 +109,14 @@ export interface RunnerList {
   pagination: PageInfo;
 }
 
-export type RunnerJobKind = 'qualification' | 'change';
+export type RunnerJobKind = 'qualification' | 'change' | 'pipeline_fix';
 
 export type RunnerJobStatus = 'pending' | 'claimed' | 'succeeded' | 'failed';
 
 export const RUNNER_JOB_KIND_LABELS: Record<RunnerJobKind, string> = {
   qualification: 'Qualification',
   change: 'Change',
+  pipeline_fix: 'Pipeline fix',
 };
 
 export const RUNNER_JOB_STATUS_LABELS: Record<RunnerJobStatus, string> = {

@@ -142,6 +142,20 @@
                   (applied)="applyPlaybooks($event)"
                 />
 
+                <div class="flex items-start gap-2">
+                  <hlm-checkbox
+                    [checked]="changeForm().changeFixPipelines"
+                    (checkedChange)="
+                      updateChangeForm('changeFixPipelines', !changeForm().changeFixPipelines)
+                    "
+                    inputId="change-fix-pipelines"
+                  />
+                  <label hlmLabel for="change-fix-pipelines">
+                    Watch the pipeline on each merge request, and let an agent push a fix when it
+                    fails because of this change
+                  </label>
+                </div>
+
                 <hlm-field>
                   <label hlmLabel for="change-rules">Rules</label>
                   <textarea
@@ -295,6 +309,17 @@
                           >
                             {{ targetStatusLabels[target.status] }}
                           </app-status-badge>
+                          @if ('not_watched' !== target.pipelineStatus) {
+                            <div class="mt-1">
+                              <app-status-badge
+                                [variant]="pipelineStatusBadgeVariants[target.pipelineStatus]"
+                                [working]="'fixing' === target.pipelineStatus"
+                                [title]="pipelineStatusTooltip(target)"
+                              >
+                                {{ pipelineStatusLabels[target.pipelineStatus] }}
+                              </app-status-badge>
+                            </div>
+                          }
                           @if (target.runnerName) {
                             <div class="text-muted-foreground mt-1 text-xs">
                               @if (target.runnerId) {
@@ -468,6 +493,10 @@
                     </dd>
                   </div>
                 }
+                <div>
+                  <dt class="text-muted-foreground text-xs font-medium">Pipeline fixes</dt>
+                  <dd class="mt-0.5">{{ shiftDetail.changeFixPipelines ? 'On' : 'Off' }}</dd>
+                </div>
                 @if (shiftDetail.changeRules) {
                   <div>
                     <dt class="text-muted-foreground text-xs font-medium">Rules</dt>
