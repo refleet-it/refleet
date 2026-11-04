@@ -53,6 +53,9 @@ final readonly class GetShiftTargetHandler
             mergeRequestExternalIid: $target->mergeRequestExternalIid(),
             mergeRequestStatus: $target->mergeRequestStatus()->value,
             mergeRequestUpdatedAt: ($target->mergeRequestClosedAt() ?? $target->mergeRequestMergedAt() ?? $target->mergeRequestOpenedAt())?->format('c'),
+            pipelineStatus: $target->pipelineStatus()->value,
+            pipelineFixAttempts: $target->pipelineFixAttempts(),
+            pipelineSummary: $target->pipelineSummary(),
             createdAt: $target->createdAt()->format('c'),
         );
     }

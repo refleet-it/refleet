@@ -23,6 +23,9 @@ final readonly class ShiftTargetResultReportedMessage
         public ?string $branchName,
         public ?string $mergeRequestUrl = null,
         public ?string $mergeRequestIid = null,
+        public ?string $headSha = null,
+        public ?string $pipelineFixJobId = null,
+        public ?string $pipelineFixOutcome = null,
     ) {
     }
 }

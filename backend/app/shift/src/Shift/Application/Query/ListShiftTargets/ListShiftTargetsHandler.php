@@ -59,6 +59,8 @@ final readonly class ListShiftTargetsHandler
             runnerName: $target->runnerName(),
             mergeRequestUrl: $target->mergeRequestUrl(),
             mergeRequestStatus: $target->mergeRequestStatus()->value,
+            pipelineStatus: $target->pipelineStatus()->value,
+            pipelineSummary: $target->pipelineSummary(),
             createdAt: $target->createdAt()->format('c'),
         );
     }

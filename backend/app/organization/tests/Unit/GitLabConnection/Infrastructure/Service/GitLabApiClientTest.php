@@ -129,6 +129,28 @@ final class GitLabApiClientTest extends TestCase
     }
 
     #[Test]
+    public function reads_one_merge_request_whole(): void
+    {
+        // Arrange
+        $requestedUrl = null;
+        $httpClient = new MockHttpClient(
+            static function (string $method, string $url) use (&$requestedUrl): MockResponse {
+                $requestedUrl = $url;
+
+                return new MockResponse((string) \json_encode(['state' => 'opened', 'sha' => 'abc', 'head_pipeline' => null]), ['http_code' => 200]);
+            },
+        );
+        $client = new GitLabApiClient($httpClient);
+
+        // Act
+        $mergeRequest = $client->getMergeRequest('https://gitlab.com', 'token', '42', '7');
+
+        // Assert
+        Assert::assertSame('https://gitlab.com/api/v4/projects/42/merge_requests/7', $requestedUrl);
+        Assert::assertSame('abc', $mergeRequest['sha']);
+    }
+
+    #[Test]
     public function asks_for_nothing_when_a_project_has_no_merge_requests_to_check(): void
     {
         // Arrange

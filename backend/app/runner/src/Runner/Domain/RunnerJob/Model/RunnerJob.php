@@ -22,7 +22,7 @@ use Doctrine\ORM\Mapping as ORM;
  * phases (distinguished by `kind`) — they behave identically from the runner's point
  * of view, so one model is enough. `ownerId`/`ownerTargetId` are opaque references into
  * whichever context enqueued the job (Qualification for kind=QUALIFICATION, Shift for
- * kind=CHANGE) — Runner never dereferences them, only round-trips them back on report.
+ * kind=CHANGE and kind=PIPELINE_FIX) — Runner never dereferences them, only round-trips them back on report.
  * Does not record domain events.
  */
 #[ORM\Entity]

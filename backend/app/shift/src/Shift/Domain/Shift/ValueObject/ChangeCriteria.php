@@ -26,6 +26,7 @@ final readonly class ChangeCriteria
         private ?string $model,
         private ?string $rules,
         private array $sources,
+        private bool $fixPipelines,
     ) {
     }
 
@@ -33,9 +34,13 @@ final readonly class ChangeCriteria
      * $engine selects which agent CLI runs the prompt (CLAUDE or KIRO); null defaults
      * to CLAUDE for backward compatibility with criteria created before Kiro support
      * existed. $rules is the already-composed rules text — the user sees and edits it as
-     * plain text, so nothing here refers back to the playbooks it came from.
+     * plain text, so nothing here refers back to the playbooks it came from. $fixPipelines
+     * lets an agent push fixes to the merge request when its pipeline fails because of the
+     * change.
      *
      * @param PromptSource[] $sources
+     *
+     * @SuppressWarnings("PHPMD.BooleanArgumentFlag") A plain setting of the criteria, stored as given.
      */
     public static function ai(
         string $prompt,
@@ -43,6 +48,7 @@ final readonly class ChangeCriteria
         ?CriteriaEngineEnum $engine = null,
         ?string $rules = null,
         array $sources = [],
+        bool $fixPipelines = false,
     ): self {
         if ('' === \trim($prompt)) {
             throw new InvalidCriteriaException('Prompt must not be empty for AI change criteria.');
@@ -50,7 +56,7 @@ final readonly class ChangeCriteria
 
         $rules = null === $rules || '' === \trim($rules) ? null : $rules;
 
-        return new self(CriteriaModeEnum::AI, $engine, $prompt, $model, $rules, \array_values($sources));
+        return new self(CriteriaModeEnum::AI, $engine, $prompt, $model, $rules, \array_values($sources), $fixPipelines);
     }
 
     public function mode(): CriteriaModeEnum
@@ -76,6 +82,11 @@ final readonly class ChangeCriteria
     public function rules(): ?string
     {
         return $this->rules;
+    }
+
+    public function fixPipelines(): bool
+    {
+        return $this->fixPipelines;
     }
 
     /**

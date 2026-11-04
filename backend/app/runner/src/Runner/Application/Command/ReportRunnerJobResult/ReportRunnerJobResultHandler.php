@@ -88,6 +88,9 @@ final readonly class ReportRunnerJobResultHandler
                 branchName: $command->branchName,
                 mergeRequestUrl: $command->mergeRequestUrl,
                 mergeRequestIid: $command->mergeRequestIid,
+                headSha: $command->headSha,
+                pipelineFixJobId: RunnerJobKindEnum::PIPELINE_FIX === $job->kind() ? $job->id()->asString() : null,
+                pipelineFixOutcome: $command->pipelineFixOutcome,
             );
     }
 

@@ -119,6 +119,8 @@ final readonly class ListShiftTargetsController
             'runnerId' => null !== $target->runnerName ? $runnerIdsByName[$target->runnerName] ?? null : null,
             'mergeRequestUrl' => $target->mergeRequestUrl,
             'mergeRequestStatus' => $target->mergeRequestStatus,
+            'pipelineStatus' => $target->pipelineStatus,
+            'pipelineSummary' => $target->pipelineSummary,
             'createdAt' => $target->createdAt,
         ];
     }

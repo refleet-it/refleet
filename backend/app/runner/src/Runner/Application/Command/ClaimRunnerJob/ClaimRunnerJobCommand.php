@@ -9,7 +9,7 @@ use App\Shared\Application\Command\Sync\CommandInterface;
 final readonly class ClaimRunnerJobCommand implements CommandInterface
 {
     /**
-     * @param string[]|null $supportedKinds   e.g. ['qualification', 'change']; null claims any kind
+     * @param string[]|null $supportedKinds   e.g. ['qualification', 'change']; null claims RunnerJobKindEnum::claimedByDefault()
      * @param string[]|null $supportedModes   e.g. ['ai']; null claims any mode
      * @param string[]|null $supportedEngines e.g. ['claude']; the static engine and/or AI-mode agents this runner can execute; null claims any engine
      */

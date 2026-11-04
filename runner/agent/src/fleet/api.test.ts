@@ -70,6 +70,26 @@ test('claimJob returns the job on 200 and sends the claim filters', async () => 
   assert.deepEqual(requests[0]?.body, { runnerId: 'box-claude', supportedModes: ['ai'], supportedEngines: ['claude'] });
 });
 
+test('claimJob asks again without kinds when a backend older than the runner rejects them', async () => {
+  let attempts = 0;
+  const { fetchFn, requests } = fakeFetch(() => (1 === ++attempts ? { status: 422 } : { status: 200, body: { jobId: 'job-1' } }));
+  const api = new FleetApi('http://localhost/api', 'k', collectLog().log, fetchFn);
+
+  const job = await api.claimJob({ name: 'box', supportedKinds: ['change', 'pipeline_fix'], supportedModes: ['ai'] });
+
+  assert.equal(job?.jobId, 'job-1');
+  assert.deepEqual(requests[0]?.body, { runnerId: 'box', supportedKinds: ['change', 'pipeline_fix'], supportedModes: ['ai'] });
+  assert.deepEqual(requests[1]?.body, { runnerId: 'box', supportedModes: ['ai'] });
+});
+
+test('claimJob does not retry a rejection when it sent no kinds', async () => {
+  const { fetchFn, requests } = fakeFetch(() => ({ status: 422 }));
+  const api = new FleetApi('http://localhost/api', 'k', collectLog().log, fetchFn);
+
+  assert.equal(await api.claimJob({ name: 'box' }), null);
+  assert.equal(requests.length, 1);
+});
+
 test('claimJob returns null on 204 (nothing to do) and on a connection failure', async () => {
   const noJob = new FleetApi('http://localhost/api', 'k', collectLog().log, fakeFetch(() => ({ status: 204 })).fetchFn);
   assert.equal(await noJob.claimJob(identity), null);

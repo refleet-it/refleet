@@ -27,7 +27,7 @@ interface Scenario {
   sync?: () => Promise<string>;
   execute?: () => Promise<AgentResult>;
   usage?: UsageTracker;
-  publish?: () => Promise<{ branchName: string; mergeRequestUrl: string; mergeRequestIid: string } | null>;
+  publish?: () => Promise<{ branchName: string; mergeRequestUrl: string; mergeRequestIid: string; headSha: string } | null>;
 }
 
 function agentSaid(output: string, usage: AgentUsage | null = null): () => Promise<AgentResult> {
@@ -66,6 +66,20 @@ function setUp(scenario: Scenario): { deps: JobRunnerDeps; requests: RecordedReq
 function reportOf(requests: RecordedRequest[]): unknown {
   return requests.find(request => request.url.endsWith('/report'))?.body;
 }
+
+test('a kind this runner does not know is refused before any checkout, never run as a change', async () => {
+  const { deps, requests } = setUp({
+    job: claimedJob({ kind: 'from_the_future' }),
+    sync: () => Promise.reject(new Error('must not check anything out')),
+    execute: () => Promise.reject(new Error('the agent must not run')),
+  });
+
+  await claimAndRunJob(deps);
+
+  const report = reportOf(requests) as { outcome: string; errorMessage: string };
+  assert.equal(report.outcome, 'failure');
+  assert.equal(report.errorMessage, 'unknown job kind');
+});
 
 test('nothing claimed means nothing else is called', async () => {
   const { deps, requests } = setUp({ job: null });
@@ -185,11 +199,11 @@ test('a change job reports the branch and the merge request in the one report, t
   const { deps, requests } = setUp({
     job: claimedJob(),
     execute: agentSaid('Did things.\n{"summary": "Renamed the helper."}'),
-    publish: () => Promise.resolve({ branchName: 'refleet/change-target-1', mergeRequestUrl: 'https://gitlab.example.com/acme/robots/-/merge_requests/9', mergeRequestIid: '9' }),
+    publish: () => Promise.resolve({ branchName: 'refleet/change-target-1', mergeRequestUrl: 'https://gitlab.example.com/acme/robots/-/merge_requests/9', mergeRequestIid: '9', headSha: 'abc123' }),
   });
   deps.publishChange = (_workspace, _credentials, _repoDir, _project, _targetId, published) => {
     wording = published;
-    return Promise.resolve({ branchName: 'refleet/change-target-1', mergeRequestUrl: 'https://gitlab.example.com/acme/robots/-/merge_requests/9', mergeRequestIid: '9' });
+    return Promise.resolve({ branchName: 'refleet/change-target-1', mergeRequestUrl: 'https://gitlab.example.com/acme/robots/-/merge_requests/9', mergeRequestIid: '9', headSha: 'abc123' });
   };
 
   await claimAndRunJob(deps);
@@ -201,6 +215,7 @@ test('a change job reports the branch and the merge request in the one report, t
     branchName: 'refleet/change-target-1',
     mergeRequestUrl: 'https://gitlab.example.com/acme/robots/-/merge_requests/9',
     mergeRequestIid: '9',
+    headSha: 'abc123',
   });
   assert.deepEqual(wording, { commitSubject: 'Bump legacy-lib', commitBody: '', title: 'Bump legacy-lib', description: 'Renamed the helper.' });
   assert.equal(requests.some(request => request.url.endsWith('/merge-request')), false);

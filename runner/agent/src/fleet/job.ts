@@ -1,8 +1,10 @@
 import type { FetchFn } from '../backend-client.js';
 import { AgentExecutionError, type AgentUsage } from '../backends/types.js';
-import type { ClaimedJob, FleetApi, JobReport, RunnerIdentity } from './api.js';
+import type { ClaimedJob, FleetApi, RunnerIdentity } from './api.js';
 import type { JobExecutor, JobKind } from './execute.js';
 import type { Logger } from './log.js';
+import { runPipelineFix } from './pipeline-fix.js';
+import { errorMessage, recordUsage, type Report, tail } from './report.js';
 import { type ChangeResult, parseChangeResult, parseQualificationResult, QUALIFICATION_SCORE_MAX, QUALIFICATION_SCORE_MIN } from './result.js';
 import {
   type ChangeWording,
@@ -13,8 +15,8 @@ import {
   type WorkspaceProject,
 } from './workspace.js';
 
-/** The backend's summary/errorMessage columns are bounded; keep the tail, where the verdict is. */
-const REPORT_TAIL_CHARS = 4000;
+/** What this runner knows how to run. Anything else is refused, never mistaken for a change. */
+const KNOWN_JOB_KINDS: readonly (string | undefined)[] = ['qualification', 'change', 'pipeline_fix', undefined];
 
 /**
  * The most recent AgentUsage this runner observed, shared between the job runner
@@ -36,16 +38,6 @@ export interface JobRunnerDeps {
   fetchFn?: FetchFn;
   syncRepo?: typeof defaultSyncRepo;
   publishChange?: typeof defaultPublishChange;
-}
-
-type Report = (outcome: JobReport['outcome'], summary: string, extra?: Omit<JobReport, 'outcome' | 'summary'>) => Promise<void>;
-
-function tail(text: string): string {
-  return text.length > REPORT_TAIL_CHARS ? text.slice(-REPORT_TAIL_CHARS) : text;
-}
-
-function errorMessage(err: unknown): string {
-  return err instanceof Error ? err.message : String(err);
 }
 
 /**
@@ -85,6 +77,12 @@ export async function claimAndRunJob(deps: JobRunnerDeps): Promise<void> {
 
   const report: Report = (outcome, summary, extra = {}) => deps.api.reportJob(deps.identity, job.jobId, { outcome, summary, ...extra });
 
+  if (!KNOWN_JOB_KINDS.includes(job.kind)) {
+    deps.log(`job ${job.jobId} is of unknown kind "${String(job.kind)}", reporting failure`);
+    await report('failure', `This runner does not know how to run a job of kind "${String(job.kind)}"; update it`, { errorMessage: 'unknown job kind' });
+    return;
+  }
+
   const project = projectOf(job);
   if (!project) {
     deps.log(`job ${job.jobId} is missing project info, reporting failure`);
@@ -105,6 +103,12 @@ export async function claimAndRunJob(deps: JobRunnerDeps): Promise<void> {
   } catch (err) {
     deps.log(`job ${job.jobId}: failed to check out ${project.path}: ${errorMessage(err)}`);
     await report('failure', `Failed to clone/update ${project.path}`, { errorMessage: tail(`git sync failed: ${errorMessage(err)}`) });
+    return;
+  }
+
+  if ('pipeline_fix' === job.kind) {
+    deps.log(`claimed job ${job.jobId} (pipeline_fix) for project ${project.path}, running in ${repoDir}`);
+    await runPipelineFix(deps, job, repoDir, project, report);
     return;
   }
 
@@ -129,12 +133,6 @@ export async function claimAndRunJob(deps: JobRunnerDeps): Promise<void> {
   }
 
   await publishAndReport(deps, job, repoDir, project, output, report);
-}
-
-function recordUsage(deps: JobRunnerDeps, usage: AgentUsage | null): void {
-  if (deps.usage && null !== usage) {
-    deps.usage.latest = usage;
-  }
 }
 
 /**
@@ -205,5 +203,6 @@ async function publishAndReport(
     branchName: published.branchName,
     mergeRequestUrl: published.mergeRequestUrl,
     mergeRequestIid: published.mergeRequestIid,
+    headSha: published.headSha,
   });
 }

@@ -17,6 +17,17 @@ export type ShiftTargetStatus =
 
 export type MergeRequestStatus = 'none' | 'open' | 'merged' | 'closed';
 
+export type PipelineStatus =
+  | 'not_watched'
+  | 'waiting'
+  | 'passed'
+  | 'fixing'
+  | 'unrelated'
+  | 'gave_up'
+  | 'inconclusive'
+  | 'no_pipeline'
+  | 'stood_down';
+
 /** Shift statuses from which no further transition is possible. */
 export const TERMINAL_SHIFT_STATUSES: readonly ShiftStatus[] = ['completed', 'cancelled'];
 
@@ -65,6 +76,42 @@ export const SHIFT_TARGET_STATUS_DESCRIPTIONS: Record<ShiftTargetStatus, string>
   completed: 'The merge request was merged — this project is done.',
   merge_request_closed: 'The merge request was closed without merging.',
   cancelled: 'This target was cancelled and will not be processed.',
+};
+
+export const PIPELINE_STATUS_LABELS: Record<PipelineStatus, string> = {
+  not_watched: 'Not watched',
+  waiting: 'Watching pipeline',
+  passed: 'Pipeline passed',
+  fixing: 'Fixing pipeline',
+  unrelated: 'Pipeline failed',
+  gave_up: 'Pipeline not fixed',
+  inconclusive: 'Pipeline inconclusive',
+  no_pipeline: 'No pipeline',
+  stood_down: 'Stood down',
+};
+
+export const PIPELINE_STATUS_DESCRIPTIONS: Record<PipelineStatus, string> = {
+  not_watched: 'The pipeline on this merge request is not being watched.',
+  waiting: 'Waiting for the pipeline on the merge request to finish.',
+  passed: 'The pipeline on the merge request passed.',
+  fixing: 'The pipeline failed and an agent is looking at it.',
+  unrelated: 'The pipeline failed, but not because of this change. Left for you to look at.',
+  gave_up: 'The pipeline failed and the agent could not fix it. Over to you.',
+  inconclusive: 'The pipeline was cancelled, skipped or is waiting on a manual job.',
+  no_pipeline: 'No pipeline appeared for this merge request, so the project may have no CI.',
+  stood_down: 'Someone else pushed to the merge request, so Refleet stopped touching it.',
+};
+
+export const PIPELINE_STATUS_BADGE_VARIANTS: Record<PipelineStatus, StatusBadgeVariant> = {
+  not_watched: 'outline',
+  waiting: 'outline',
+  passed: 'success',
+  fixing: 'default',
+  unrelated: 'destructive',
+  gave_up: 'destructive',
+  inconclusive: 'secondary',
+  no_pipeline: 'secondary',
+  stood_down: 'secondary',
 };
 
 export const SHIFT_TARGET_STATUS_BADGE_VARIANTS: Record<ShiftTargetStatus, StatusBadgeVariant> = {
@@ -138,6 +185,8 @@ export interface ShiftDetails {
   /** Organization rules composed from playbooks and edited by the user; sent verbatim before the change. */
   changeRules: string | null;
   changeSources: PromptSource[];
+  /** Whether an agent may push fixes when a merge request's pipeline fails because of the change. */
+  changeFixPipelines: boolean;
   cancelReason: string | null;
   targetCount: number;
   statusBreakdown: Record<string, number>;
@@ -178,6 +227,7 @@ export interface DefineShiftChangePayload {
   changeModel?: AiModel;
   changeRules?: string;
   changeSources?: PromptSource[];
+  changeFixPipelines?: boolean;
 }
 
 export interface ShiftChangePromptPreviewPayload {
@@ -209,6 +259,9 @@ export interface ShiftTargetOverview {
   runnerId: string | null;
   mergeRequestUrl: string | null;
   mergeRequestStatus: MergeRequestStatus;
+  pipelineStatus: PipelineStatus;
+  /** What the agent concluded the last time it looked at a failed pipeline. */
+  pipelineSummary: string | null;
   createdAt: string;
 }
 

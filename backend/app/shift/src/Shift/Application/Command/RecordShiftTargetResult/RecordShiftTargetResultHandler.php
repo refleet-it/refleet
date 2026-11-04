@@ -7,6 +7,7 @@ namespace App\Shift\Shift\Application\Command\RecordShiftTargetResult;
 use App\Shift\Shift\Domain\Shift\Enum\ShiftStatusEnum;
 use App\Shift\Shift\Domain\Shift\Repository\ShiftRepositoryInterface;
 use App\Shift\Shift\Domain\Shift\ValueObject\ShiftId;
+use App\Shift\Shift\Domain\ShiftTarget\Enum\PipelineFixOutcomeEnum;
 use App\Shift\Shift\Domain\ShiftTarget\Enum\ShiftTargetStatusEnum;
 use App\Shift\Shift\Domain\ShiftTarget\Repository\ShiftTargetRepositoryInterface;
 use App\Shift\Shift\Domain\ShiftTarget\ValueObject\ShiftTargetId;
@@ -29,8 +30,20 @@ final readonly class RecordShiftTargetResultHandler
             return;
         }
 
+        if (null !== $command->pipelineFixJobId) {
+            $target->recordPipelineFixResult(
+                $command->pipelineFixJobId,
+                $command->success ? PipelineFixOutcomeEnum::tryFrom($command->pipelineFixOutcome ?? '') ?? PipelineFixOutcomeEnum::NOT_FIXED : PipelineFixOutcomeEnum::NOT_FIXED,
+                $command->errorMessage ?? $command->summary,
+                $command->headSha,
+            );
+            $this->shiftTargets->save($target);
+
+            return;
+        }
+
         if ($command->success) {
-            $target->recordChangeSuccess($command->summary, $command->branchName, $command->runnerName, $command->mergeRequestUrl, $command->mergeRequestIid);
+            $target->recordChangeSuccess($command->summary, $command->branchName, $command->runnerName, $command->mergeRequestUrl, $command->mergeRequestIid, $command->headSha, $this->watchesPipelines($command));
         } else {
             $target->recordChangeFailure($command->errorMessage ?? $command->summary, $command->runnerName);
         }
@@ -38,6 +51,12 @@ final readonly class RecordShiftTargetResultHandler
         $this->shiftTargets->save($target);
 
         $this->completeIfFinished(ShiftId::fromString($command->shiftId));
+    }
+
+    private function watchesPipelines(RecordShiftTargetResultCommand $command): bool
+    {
+        return null !== $command->headSha
+            && ($this->shifts->findById(ShiftId::fromString($command->shiftId))?->changeCriteria()?->fixPipelines() ?? false);
     }
 
     private function completeIfFinished(ShiftId $shiftId): void

@@ -22,11 +22,22 @@ export interface ClaimedJobProject {
   defaultBranch?: string;
 }
 
+/** kind=pipeline_fix: which merge request and failed pipeline the job is about. */
+export interface PipelineFixSpec {
+  branchName: string;
+  headSha: string;
+  pipelineId: string;
+  mergeRequestIid: string;
+}
+
+export type PipelineFixOutcome = 'fixed' | 'unrelated' | 'superseded' | 'not_fixed';
+
 export interface ClaimedJobPayload {
   project?: ClaimedJobProject;
   engine?: string;
   prompt?: string;
   model?: string;
+  pipelineFix?: PipelineFixSpec;
   [key: string]: unknown;
 }
 
@@ -56,6 +67,9 @@ export interface JobReport {
   branchName?: string;
   mergeRequestUrl?: string;
   mergeRequestIid?: string;
+  /** kind=change and kind=pipeline_fix: the commit pushed; without it the backend does not watch the pipeline. */
+  headSha?: string;
+  pipelineFixOutcome?: PipelineFixOutcome;
 }
 
 /**
@@ -156,7 +170,14 @@ export class FleetApi {
       ...withList('supportedModes', identity.supportedModes),
       ...withList('supportedEngines', identity.supportedEngines),
     };
-    const response = await this.request('POST', '/runner/jobs/claim', body);
+    let response = await this.request('POST', '/runner/jobs/claim', body);
+    // A backend older than this runner rejects a kind it does not know, and without this the
+    // whole fleet would sit idle until it is upgraded. Omitting the list claims only the
+    // kinds such a backend has anyway.
+    if (422 === response.status && identity.supportedKinds) {
+      const { supportedKinds: _supportedKinds, ...withoutKinds } = body as Record<string, unknown>;
+      response = await this.request('POST', '/runner/jobs/claim', withoutKinds);
+    }
     if (200 !== response.status) {
       return null;
     }
@@ -179,6 +200,8 @@ export class FleetApi {
       ...(report.branchName ? { branchName: report.branchName } : {}),
       ...(report.mergeRequestUrl ? { mergeRequestUrl: report.mergeRequestUrl } : {}),
       ...(report.mergeRequestIid ? { mergeRequestIid: report.mergeRequestIid } : {}),
+      ...(report.headSha ? { headSha: report.headSha } : {}),
+      ...(report.pipelineFixOutcome ? { pipelineFixOutcome: report.pipelineFixOutcome } : {}),
     };
     const response = await this.request('POST', `/runner/jobs/${jobId}/report`, body);
     if (!isSuccess(response.status)) {

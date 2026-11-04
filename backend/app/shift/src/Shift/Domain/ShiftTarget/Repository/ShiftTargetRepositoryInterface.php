@@ -33,6 +33,14 @@ interface ShiftTargetRepositoryInterface
     public function findOpenMergeRequestsToCheck(\DateTimeImmutable $checkedBefore, int $limit): array;
 
     /**
+     * Targets with an open merge request whose pipeline Refleet is waiting on and has not
+     * checked since $checkedBefore, least recently checked first.
+     *
+     * @return ShiftTarget[]
+     */
+    public function findPipelinesToCheck(\DateTimeImmutable $checkedBefore, int $limit): array;
+
+    /**
      * @return ListResponse<ShiftTarget> ordered by created_at ASC
      */
     public function getPaginatedListByShiftId(ShiftId $shiftId, PaginationParameters $pagination, ?ShiftTargetStatusEnum $status = null): ListResponse;

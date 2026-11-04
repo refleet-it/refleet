@@ -36,6 +36,9 @@ services:
     App\Shared\Domain\Service\MergeRequestStateReaderInterface:
         alias: App\Organization\GitLabConnection\Infrastructure\Service\GitLabMergeRequestStateReader
 
+    App\Shared\Domain\Service\MergeRequestPipelineReaderInterface:
+        alias: App\Organization\GitLabConnection\Infrastructure\Service\GitLabMergeRequestPipelineReader
+
     App\Shared\Domain\Service\RunnerDirectoryInterface:
         alias: App\Runner\Runner\Infrastructure\Service\RunnerDirectory
 

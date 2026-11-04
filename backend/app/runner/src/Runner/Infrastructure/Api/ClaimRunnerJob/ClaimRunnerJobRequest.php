@@ -21,8 +21,8 @@ final readonly class ClaimRunnerJobRequest
         /**
          * @var string[]|null
          */
-        #[Assert\All([new Assert\Choice(choices: ['qualification', 'change'])])]
-        #[OA\Property(description: 'Job kinds this runner can execute. Omit to accept both.', type: 'array', items: new OA\Items(type: 'string', enum: ['qualification', 'change']))]
+        #[Assert\All([new Assert\Choice(choices: ['qualification', 'change', 'pipeline_fix'])])]
+        #[OA\Property(description: 'Job kinds this runner can execute. Omit to accept qualification and change; pipeline_fix is only handed to a runner that names it.', type: 'array', items: new OA\Items(type: 'string', enum: ['qualification', 'change', 'pipeline_fix']))]
         public ?array $supportedKinds = null,
         /**
          * @var string[]|null

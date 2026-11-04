@@ -61,6 +61,7 @@ final readonly class DefineShiftChangeController
             changeModel: $payload->changeModel,
             changeRules: $payload->changeRules,
             changeSources: $payload->changeSources ?? [],
+            changeFixPipelines: $payload->changeFixPipelines,
         ));
 
         $handledStamp = $this->bus->dispatch(new GetShiftQuery(

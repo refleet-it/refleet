@@ -82,6 +82,7 @@ export function fleetOptionsFromEnv(env: NodeJS.ProcessEnv, credentials: { apiUr
 export function identityFor(options: FleetOptions, engine: Engine): RunnerIdentity {
   return {
     name: `${options.runnerName}-${engine}`,
+    supportedKinds: ['qualification', 'change', 'pipeline_fix'],
     supportedModes: ['ai'],
     supportedEngines: [engine],
     supportedModels: options.availableModels[engine] ?? [],

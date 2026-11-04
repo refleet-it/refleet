@@ -8,6 +8,7 @@ use App\Shared\Domain\ValueObject\ListResponse;
 use App\Shared\Domain\ValueObject\Pagination\PaginationParameters;
 use App\Shared\Infrastructure\Doctrine\QueryBuilderPaginator;
 use App\Shift\Shift\Domain\Shift\ValueObject\ShiftId;
+use App\Shift\Shift\Domain\ShiftTarget\Enum\PipelineStatusEnum;
 use App\Shift\Shift\Domain\ShiftTarget\Enum\ShiftTargetStatusEnum;
 use App\Shift\Shift\Domain\ShiftTarget\Model\ShiftTarget;
 use App\Shift\Shift\Domain\ShiftTarget\Repository\ShiftTargetRepositoryInterface;
@@ -57,6 +58,27 @@ final readonly class DoctrineShiftTargetRepository implements ShiftTargetReposit
             ->setParameter('status', ShiftTargetStatusEnum::MERGE_REQUEST_OPEN->value)
             ->setParameter('checkedBefore', $checkedBefore)
             ->orderBy('t.mergeRequestCheckedAt', 'ASC')
+            ->setMaxResults($limit)
+            ->getQuery()
+            ->getResult();
+
+        return $targets;
+    }
+
+    #[\Override]
+    public function findPipelinesToCheck(\DateTimeImmutable $checkedBefore, int $limit): array
+    {
+        /** @var ShiftTarget[] $targets */
+        $targets = $this->em
+            ->getRepository(ShiftTarget::class)
+            ->createQueryBuilder('t')
+            ->where('t.status = :status')
+            ->andWhere('t.pipelineStatus = :pipelineStatus')
+            ->andWhere('t.pipelineCheckedAt IS NULL OR t.pipelineCheckedAt < :checkedBefore')
+            ->setParameter('status', ShiftTargetStatusEnum::MERGE_REQUEST_OPEN->value)
+            ->setParameter('pipelineStatus', PipelineStatusEnum::WAITING->value)
+            ->setParameter('checkedBefore', $checkedBefore)
+            ->orderBy('t.pipelineCheckedAt', 'ASC')
             ->setMaxResults($limit)
             ->getQuery()
             ->getResult();

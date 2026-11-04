@@ -47,6 +47,41 @@ final class ClaimRunnerJobHandlerTest extends TestCase
     }
 
     #[Test]
+    public function a_runner_that_does_not_name_its_kinds_is_never_offered_a_pipeline_fix(): void
+    {
+        // Arrange: today's runners send no kinds, and run anything they do not recognise as a change.
+        $this->runnerJobs
+            ->expects($this->once())
+            ->method('claimNext')
+            ->with($this->anything(), [RunnerJobKindEnum::QUALIFICATION, RunnerJobKindEnum::CHANGE])
+            ->willReturn(null);
+
+        // Act
+        ($this->handler)(new ClaimRunnerJobCommand(
+            runnerId: 'runner-fleet-01',
+            organizationId: OrganizationId::generate()->asString(),
+        ));
+    }
+
+    #[Test]
+    public function a_runner_that_names_pipeline_fix_can_claim_it(): void
+    {
+        // Arrange
+        $this->runnerJobs
+            ->expects($this->once())
+            ->method('claimNext')
+            ->with($this->anything(), [RunnerJobKindEnum::CHANGE, RunnerJobKindEnum::PIPELINE_FIX])
+            ->willReturn(null);
+
+        // Act
+        ($this->handler)(new ClaimRunnerJobCommand(
+            runnerId: 'runner-fleet-01',
+            organizationId: OrganizationId::generate()->asString(),
+            supportedKinds: ['change', 'pipeline_fix'],
+        ));
+    }
+
+    #[Test]
     public function maps_a_claimed_job_to_the_output_dto(): void
     {
         // Arrange

@@ -19,7 +19,7 @@ Two intervals, both configurable:
 Claiming is how work is distributed: the API hands out one job at a time to whoever asks, so two
 runners never take the same job and adding a runner just means work drains faster.
 
-## Two kinds of job
+## Three kinds of job
 
 **Qualification** decides whether a change applies to a project at all. It is a read-only
 question and must not modify the repository — the answer is a score from 1 to 5, and Refleet
@@ -29,15 +29,47 @@ counts 4 and 5 as qualified.
 commits, pushes and opens (or refreshes) the merge request itself, labelled `refleet`, and reports
 its URL together with the outcome.
 
-Either way the agent closes its answer with one JSON object (`{"score": …, "reasoning": …}` or
-`{"summary": …}`) that the runner parses; the prose around it is never interpreted.
+**Pipeline fix** looks at a failed pipeline on a merge request Refleet opened. It is queued by the
+API, not by anyone waiting on a runner, once a poll has found the pipeline red — see
+[Fixing a failed pipeline](#fixing-a-failed-pipeline).
+
+Every kind has the agent close its answer with one JSON object (`{"score": …, "reasoning": …}`,
+`{"summary": …}` or `{"causedByChange": …, "summary": …}`) that the runner parses; the prose around
+it is never interpreted.
 
 The distinction is passed through to the engine, because they warrant different settings: a
 qualification run can use a cheaper model and a narrower set of tools than a run that rewrites
 code — the `CLAUDE_QUALIFICATION_*` variables as against the plain `CLAUDE_*` ones.
 
-Either way a job is a **single prompt run to completion**. There is no conversation, no resuming a
+Any job is a **single prompt run to completion**. There is no conversation, no resuming a
 session and no follow-up turn — the runner claims, runs once, reports.
+
+## Fixing a failed pipeline
+
+Watching a pipeline takes no agent and no runner: the API polls GitLab every few minutes, and a
+runner only gets involved once a pipeline has failed.
+
+The runner then reads the failed jobs and their logs from GitLab itself, checks out the merge
+request's branch and asks the agent whether the change caused the failure. If it did, the agent's
+edits go on as a new commit. If it did not, nothing is pushed and the merge request gets a note
+saying why. A new commit means a new pipeline, which is watched in turn, up to three attempts.
+
+Refleet stops touching a merge request as soon as a person does. The runner reports the commit it
+pushed, and any other head means someone else has moved the branch. The head is checked again
+before the agent starts and before pushing, and a fix is never force-pushed, so a commit that
+slips in between makes the push fail rather than disappear.
+
+Two things to know before turning it on:
+
+- **Logs go to the agent's provider.** The tail of each failed job's log, up to 20,000 characters
+  for at most five jobs, is part of the prompt. GitLab only masks variables marked as masked, so
+  anything else a job prints goes along with it. Logs are not stored in Refleet.
+- **Logs are untrusted input.** Anyone able to push to a project can influence what its pipeline
+  prints. The prompt marks logs as data and says not to follow instructions in them, which lowers
+  the risk of prompt injection but does not remove it, so review these commits like any others.
+
+Only runners that ask for `pipeline_fix` are offered these jobs, and an older runner never does.
+Until one of yours is updated, the job waits and the target shows **Fixing pipeline**.
 
 ## Engines, and why one host can be two runners
 

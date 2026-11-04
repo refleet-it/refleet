@@ -9,7 +9,9 @@ use App\Shift\Shift\Application\Command\RecordShiftTargetResult\RecordShiftTarge
 use App\Shift\Shift\Domain\Shift\Enum\ShiftStatusEnum;
 use App\Shift\Shift\Domain\Shift\Model\Shift;
 use App\Shift\Shift\Domain\Shift\Repository\ShiftRepositoryInterface;
+use App\Shift\Shift\Domain\Shift\ValueObject\ChangeCriteria;
 use App\Shift\Shift\Domain\Shift\ValueObject\ShiftId;
+use App\Shift\Shift\Domain\ShiftTarget\Enum\PipelineFixOutcomeEnum;
 use App\Shift\Shift\Domain\ShiftTarget\Model\ShiftTarget;
 use App\Shift\Shift\Domain\ShiftTarget\Repository\ShiftTargetRepositoryInterface;
 use App\Shift\Shift\Domain\ShiftTarget\ValueObject\ShiftTargetId;
@@ -46,6 +48,89 @@ final class RecordShiftTargetResultHandlerTest extends TestCase
             summary: 'Applied',
             runnerName: 'runner-1',
         ));
+    }
+
+    #[Test]
+    #[AllowMockObjectsWithoutExpectations]
+    public function a_pipeline_fix_settles_only_the_pipeline_and_never_the_change(): void
+    {
+        // Arrange
+        $target = $this->createMock(ShiftTarget::class);
+        $target->expects($this->never())->method('recordChangeSuccess');
+        $target->expects($this->never())->method('recordChangeFailure');
+        $target->expects($this->once())->method('recordPipelineFixResult')->with('job-1', PipelineFixOutcomeEnum::FIXED, 'Fixed the types', 'abc');
+        $this->shiftTargets->method('findById')->willReturn($target);
+        $this->shiftTargets->expects($this->once())->method('save')->with($target);
+        $this->shiftTargets->expects($this->never())->method('countByShiftIdAndStatuses');
+
+        // Act
+        ($this->handler)(new RecordShiftTargetResultCommand(
+            shiftId: ShiftId::generate()->asString(),
+            targetId: ShiftTargetId::generate()->asString(),
+            organizationId: '22222222-2222-2222-2222-222222222222',
+            success: true,
+            summary: 'Fixed the types',
+            runnerName: 'runner-1',
+            headSha: 'abc',
+            pipelineFixJobId: 'job-1',
+            pipelineFixOutcome: 'fixed',
+        ));
+    }
+
+    #[Test]
+    #[AllowMockObjectsWithoutExpectations]
+    public function a_failed_pipeline_fix_job_counts_as_not_fixed_whatever_it_claims(): void
+    {
+        // Arrange
+        $target = $this->createMock(ShiftTarget::class);
+        $target->expects($this->once())->method('recordPipelineFixResult')->with('job-1', PipelineFixOutcomeEnum::NOT_FIXED, 'push rejected', null);
+        $this->shiftTargets->method('findById')->willReturn($target);
+
+        // Act
+        ($this->handler)(new RecordShiftTargetResultCommand(
+            shiftId: ShiftId::generate()->asString(),
+            targetId: ShiftTargetId::generate()->asString(),
+            organizationId: '22222222-2222-2222-2222-222222222222',
+            success: false,
+            summary: 'Failed to fix the pipeline',
+            runnerName: 'runner-1',
+            errorMessage: 'push rejected',
+            pipelineFixJobId: 'job-1',
+            pipelineFixOutcome: 'fixed',
+        ));
+    }
+
+    #[Test]
+    #[AllowMockObjectsWithoutExpectations]
+    public function watches_the_pipeline_only_when_the_shift_asked_for_it(): void
+    {
+        foreach ([true, false] as $fixPipelines) {
+            // Arrange
+            $shift = $this->createStub(Shift::class);
+            $shift->method('changeCriteria')->willReturn(ChangeCriteria::ai('Bump it', fixPipelines: $fixPipelines));
+            $shifts = $this->createStub(ShiftRepositoryInterface::class);
+            $shifts->method('findById')->willReturn($shift);
+
+            $target = $this->createMock(ShiftTarget::class);
+            $target->expects($this->once())->method('recordChangeSuccess')->with('Bumped', 'b', 'runner-1', 'https://gitlab.example.com/a/-/merge_requests/9', '9', 'abc', $fixPipelines);
+            $shiftTargets = $this->createStub(ShiftTargetRepositoryInterface::class);
+            $shiftTargets->method('findById')->willReturn($target);
+            $shiftTargets->method('countByShiftIdAndStatuses')->willReturn(1);
+
+            // Act
+            new RecordShiftTargetResultHandler($shiftTargets, $shifts)(new RecordShiftTargetResultCommand(
+                shiftId: ShiftId::generate()->asString(),
+                targetId: ShiftTargetId::generate()->asString(),
+                organizationId: '22222222-2222-2222-2222-222222222222',
+                success: true,
+                summary: 'Bumped',
+                runnerName: 'runner-1',
+                branchName: 'b',
+                mergeRequestUrl: 'https://gitlab.example.com/a/-/merge_requests/9',
+                mergeRequestIid: '9',
+                headSha: 'abc',
+            ));
+        }
     }
 
     #[Test]

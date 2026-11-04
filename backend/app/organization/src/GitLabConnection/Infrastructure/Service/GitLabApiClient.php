@@ -118,6 +118,16 @@ final readonly class GitLabApiClient implements GitLabApiClientInterface
         return $states;
     }
 
+    #[\Override]
+    public function getMergeRequest(string $baseUrl, string $accessToken, string $externalProjectId, string $iid): array
+    {
+        $url = $this->endpoint($baseUrl, '/projects/'.\rawurlencode($externalProjectId).'/merge_requests/'.\rawurlencode($iid));
+
+        $response = $this->httpClient->request('GET', $url, ['headers' => ['Authorization' => 'Bearer '.$accessToken]]);
+
+        return $this->decodeOrFail($response, \sprintf('merge request "%s" was not found', $iid));
+    }
+
     /**
      * Group hooks are Premium/Ultimate only and need the Owner role, so a 403/404 here
      * means there was never a group hook to remove rather than a failure.

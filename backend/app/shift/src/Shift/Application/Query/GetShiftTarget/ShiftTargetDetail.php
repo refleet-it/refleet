@@ -31,6 +31,9 @@ final readonly class ShiftTargetDetail
         public ?string $mergeRequestExternalIid,
         public string $mergeRequestStatus,
         public ?string $mergeRequestUpdatedAt,
+        public string $pipelineStatus,
+        public int $pipelineFixAttempts,
+        public ?string $pipelineSummary,
         public string $createdAt,
     ) {
     }

@@ -20,6 +20,7 @@ final readonly class DefineShiftChangeCommand implements CommandInterface
         public ?string $changeModel = null,
         public ?string $changeRules = null,
         public array $changeSources = [],
+        public bool $changeFixPipelines = false,
     ) {
     }
 }

@@ -25,6 +25,7 @@ export interface PublishedChange {
   branchName: string;
   mergeRequestUrl: string;
   mergeRequestIid: string;
+  headSha: string;
 }
 
 function directorySizeBytes(dir: string): number {
@@ -141,6 +142,23 @@ export interface ChangeWording {
   description: string;
 }
 
+async function commitStagedChanges(workspace: Workspace, repoDir: string, subject: string, body: string): Promise<boolean> {
+  await workspace.git(['add', '-A'], repoDir);
+  const staged = await workspace.git(['diff', '--cached', '--name-only'], repoDir);
+  if ('' === staged.stdout.trim()) {
+    workspace.log('job produced no file changes, skipping branch/MR creation');
+    return false;
+  }
+
+  const commitMessage = '' === body ? [subject] : [subject, body];
+  await workspace.git(['-c', 'user.name=Refleet', '-c', 'user.email=refleet@localhost', 'commit', ...commitMessage.flatMap(part => ['-m', part])], repoDir);
+  return true;
+}
+
+async function headOf(workspace: Workspace, repoDir: string): Promise<string> {
+  return (await workspace.git(['rev-parse', 'HEAD'], repoDir)).stdout.trim();
+}
+
 /**
  * Commits whatever the job changed, force-pushes it to a branch deterministic per shift
  * target (so a re-run overwrites its own previous attempt instead of piling up branches)
@@ -161,15 +179,10 @@ export async function publishChange(
 ): Promise<PublishedChange | null> {
   const branchName = `refleet/change-${shiftTargetId}`;
 
-  await workspace.git(['add', '-A'], repoDir);
-  const staged = await workspace.git(['diff', '--cached', '--name-only'], repoDir);
-  if ('' === staged.stdout.trim()) {
-    workspace.log('job produced no file changes, skipping branch/MR creation');
+  if (!(await commitStagedChanges(workspace, repoDir, wording.commitSubject, wording.commitBody))) {
     return null;
   }
 
-  const commitMessage = '' === wording.commitBody ? [wording.commitSubject] : [wording.commitSubject, wording.commitBody];
-  await workspace.git(['-c', 'user.name=Refleet', '-c', 'user.email=refleet@localhost', 'commit', ...commitMessage.flatMap(part => ['-m', part])], repoDir);
   await workspace.git(['push', '--force', 'origin', `HEAD:refs/heads/${branchName}`], repoDir, gitAuthEnv(credentials.accessToken));
 
   // Only the colour is at stake here: the MR gets the label either way, and GitLab
@@ -186,5 +199,32 @@ export async function publishChange(
     fetchFn,
   );
 
-  return { branchName, mergeRequestUrl: mergeRequest.url, mergeRequestIid: mergeRequest.iid };
+  return { branchName, mergeRequestUrl: mergeRequest.url, mergeRequestIid: mergeRequest.iid, headSha: await headOf(workspace, repoDir) };
+}
+
+/** Moves the checkout onto a merge request's branch, as syncRepo just fetched it, and returns its head. */
+export async function checkoutMergeRequestBranch(workspace: Workspace, repoDir: string, branchName: string): Promise<string> {
+  await workspace.git(['checkout', '-f', '-B', branchName, `origin/${branchName}`], repoDir);
+  return headOf(workspace, repoDir);
+}
+
+/**
+ * Commits a pipeline fix on top of the merge request's branch and returns the new head, or
+ * null when there was nothing to commit. Never forced, unlike publishChange: that one
+ * replaces Refleet's own previous attempt, whereas here the branch may have moved under a
+ * person's hands, and a rejected push is the right answer to that.
+ */
+export async function pushPipelineFix(
+  workspace: Workspace,
+  credentials: GitLabCredentials,
+  repoDir: string,
+  branchName: string,
+  wording: { subject: string; body: string },
+): Promise<string | null> {
+  if (!(await commitStagedChanges(workspace, repoDir, wording.subject, wording.body))) {
+    return null;
+  }
+
+  await workspace.git(['push', 'origin', `HEAD:refs/heads/${branchName}`], repoDir, gitAuthEnv(credentials.accessToken));
+  return headOf(workspace, repoDir);
 }

@@ -74,6 +74,9 @@ class Shift extends AggregateRoot
     #[ORM\Column(name: 'change_started_at', type: Types::DATETIME_IMMUTABLE, nullable: true)]
     private ?\DateTimeImmutable $changeStartedAt = null;
 
+    #[ORM\Column(name: 'change_fix_pipelines', type: Types::BOOLEAN, options: ['default' => false])]
+    private bool $changeFixPipelines = false;
+
     #[ORM\Column(name: 'completed_at', type: Types::DATETIME_IMMUTABLE, nullable: true)]
     private ?\DateTimeImmutable $completedAt = null;
 
@@ -130,6 +133,7 @@ class Shift extends AggregateRoot
         $this->changePrompt = $criteria->prompt();
         $this->changeModel = $criteria->model();
         $this->changeRules = $criteria->rules();
+        $this->changeFixPipelines = $criteria->fixPipelines();
         $this->changeSources = [] === $criteria->sources()
             ? null
             : \array_map(static fn (PromptSource $source): array => $source->toArray(), $criteria->sources());
@@ -265,6 +269,7 @@ class Shift extends AggregateRoot
                 $this->changeEngine,
                 $this->changeRules,
                 \array_map(PromptSource::fromArray(...), $this->changeSources ?? []),
+                $this->changeFixPipelines,
             ),
         };
     }
