@@ -106,6 +106,13 @@ export class ShiftService {
     );
   }
 
+  retryPipelineFix(id: string, targetId: string): Observable<ShiftTargetDetails> {
+    return this.http.post<ShiftTargetDetails>(
+      `${environment.apiUrl}/shifts/${id}/targets/${targetId}/pipeline-fix/retry`,
+      {}
+    );
+  }
+
   reportMergeRequestStatus(
     id: string,
     targetId: string,

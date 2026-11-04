@@ -96,7 +96,8 @@ export const PIPELINE_STATUS_DESCRIPTIONS: Record<PipelineStatus, string> = {
   passed: 'The pipeline on the merge request passed.',
   fixing: 'The pipeline failed and an agent is looking at it.',
   unrelated: 'The pipeline failed, but not because of this change. Left for you to look at.',
-  gave_up: 'The pipeline failed and the agent could not fix it. Over to you.',
+  gave_up:
+    'The pipeline failed and the agent could not fix it. Retry the fix or take it from here.',
   inconclusive: 'The pipeline was cancelled, skipped or is waiting on a manual job.',
   no_pipeline: 'No pipeline appeared for this merge request, so the project may have no CI.',
   stood_down: 'Someone else pushed to the merge request, so Refleet stopped touching it.',
@@ -262,6 +263,8 @@ export interface ShiftTargetOverview {
   pipelineStatus: PipelineStatus;
   /** What the agent concluded the last time it looked at a failed pipeline. */
   pipelineSummary: string | null;
+  pipelineFixAttempts: number;
+  pipelineFixMaxAttempts: number;
   createdAt: string;
 }
 
@@ -272,7 +275,7 @@ export interface ShiftTargetList {
 
 export interface ShiftTargetDetails extends Omit<
   ShiftTargetOverview,
-  'projectName' | 'projectPath' | 'runnerId'
+  'projectName' | 'projectPath' | 'runnerId' | 'pipelineFixMaxAttempts'
 > {
   organizationId: string;
   projectSnapshot: {
