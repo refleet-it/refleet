@@ -66,11 +66,12 @@ function options(overrides: Partial<FleetOptions> = {}): FleetOptions {
 test('identityFor registers one runner per engine, scoped to that engine', () => {
   assert.deepEqual(identityFor(options(), 'claude'), {
     name: 'box-claude',
+    supportedKinds: ['qualification', 'change', 'pipeline_fix'],
     supportedModes: ['ai'],
     supportedEngines: ['claude'],
     supportedModels: ['claude-sonnet-5'],
   });
-  assert.deepEqual(identityFor(options(), 'kiro'), { name: 'box-kiro', supportedModes: ['ai'], supportedEngines: ['kiro'], supportedModels: [] });
+  assert.deepEqual(identityFor(options(), 'kiro'), { name: 'box-kiro', supportedKinds: ['qualification', 'change', 'pipeline_fix'], supportedModes: ['ai'], supportedEngines: ['kiro'], supportedModels: [] });
 });
 
 test('pollLoop heartbeats on its own interval, claims every cycle and stops when aborted', async () => {

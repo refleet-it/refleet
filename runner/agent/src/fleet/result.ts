@@ -39,6 +39,13 @@ export interface ProposedMergeRequest {
   description: string;
 }
 
+export interface PipelineFixResult {
+  /** The agent's verdict on whether the change broke the pipeline; nothing is pushed unless it did. */
+  causedByChange: boolean;
+  summary: string;
+  commit?: ProposedCommit;
+}
+
 type JsonObject = Record<string, unknown>;
 
 function parseObject(candidate: string): JsonObject | null {
@@ -139,4 +146,19 @@ export function parseChangeResult(output: string): ChangeResult | null {
   const commit = parseProposedCommit(object?.['commit']);
   const mergeRequest = parseProposedMergeRequest(object?.['mergeRequest']);
   return { summary, ...(commit ? { commit } : {}), ...(mergeRequest ? { mergeRequest } : {}) };
+}
+
+/**
+ * Null without a real boolean verdict and a summary. The verdict decides whether a commit
+ * lands on someone's merge request, so it is never guessed from a near miss.
+ */
+export function parsePipelineFixResult(output: string): PipelineFixResult | null {
+  const object = extractLastJsonObject(output);
+  const causedByChange = object?.['causedByChange'];
+  const summary = asText(object?.['summary']);
+  if ('boolean' !== typeof causedByChange || '' === summary) {
+    return null;
+  }
+  const commit = parseProposedCommit(object?.['commit']);
+  return { causedByChange, summary, ...(commit ? { commit } : {}) };
 }

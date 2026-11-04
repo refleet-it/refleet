@@ -136,7 +136,12 @@ test('publishChange returns null when the job changed nothing', async () => {
 });
 
 test('publishChange commits, force-pushes the per-target branch and opens the merge request with the refleet label', async () => {
-  const { git, calls } = fakeGit(args => ('diff' === args[0] ? 'src/app.php\n' : ''));
+  const { git, calls } = fakeGit(args => {
+    if ('rev-parse' === args[0]) {
+      return 'abc123\n';
+    }
+    return 'diff' === args[0] ? 'src/app.php\n' : '';
+  });
   const { fetchFn, requests } = fakeFetch(request => {
     if (request.url.includes('/labels')) {
       return { status: 200, body: [{ name: 'refleet' }] };
@@ -148,7 +153,7 @@ test('publishChange commits, force-pushes the per-target branch and opens the me
 
   const result = await publishChange(workspaceIn(tempDir(), git), credentials, '/repo', project, 't1', wording('Bump legacy-lib', 'what changed'), fetchFn);
 
-  assert.deepEqual(result, { branchName: 'refleet/change-t1', mergeRequestUrl: 'https://gitlab.example.com/acme/robots/-/merge_requests/9', mergeRequestIid: '9' });
+  assert.deepEqual(result, { branchName: 'refleet/change-t1', mergeRequestUrl: 'https://gitlab.example.com/acme/robots/-/merge_requests/9', mergeRequestIid: '9', headSha: 'abc123' });
   assert.deepEqual(calls[2]?.args, ['-c', 'user.name=Refleet', '-c', 'user.email=refleet@localhost', 'commit', '-m', 'Bump legacy-lib']);
   assert.deepEqual(calls[3]?.args, ['push', '--force', 'origin', 'HEAD:refs/heads/refleet/change-t1']);
   assert.equal(calls[3]?.env?.GIT_CONFIG_KEY_0, 'http.extraHeader');

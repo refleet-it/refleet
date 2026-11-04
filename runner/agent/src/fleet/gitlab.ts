@@ -174,3 +174,110 @@ export async function publishMergeRequest(
 
   return toMergeRequest((await response.json()) as MergeRequestResource, response.status);
 }
+
+export interface MergeRequestHead {
+  state: string;
+  sha: string;
+}
+
+/** Throws rather than guessing: the caller is deciding whether it is safe to touch the branch. */
+export async function readMergeRequestHead(credentials: GitLabCredentials, projectId: string, iid: string, fetchFn: FetchFn = fetch): Promise<MergeRequestHead> {
+  const response = await gitlabRequest(credentials, fetchFn, 'GET', `/projects/${projectId}/merge_requests/${iid}`);
+  if (!response.ok) {
+    return failWith(response, 'lookup');
+  }
+  const resource = (await response.json()) as { state?: string; sha?: string };
+  if (!resource.state || !resource.sha) {
+    throw new GitLabRequestError('merge request response carried no state/sha', response.status);
+  }
+  return { state: resource.state, sha: resource.sha };
+}
+
+export interface FailedJob {
+  id: string;
+  /** Not always the merge request's project: a job can fail in a child pipeline. */
+  projectId: string;
+  name: string;
+  stage: string;
+}
+
+interface PipelineJobResource {
+  id?: number | string;
+  name?: string;
+  stage?: string;
+  allow_failure?: boolean;
+  downstream_pipeline?: { id?: number | string; project_id?: number | string } | null;
+}
+
+/** Parent, child and grandchild is as deep as pipelines are nested in practice. */
+const MAX_PIPELINE_DEPTH = 3;
+
+/**
+ * The jobs that actually made the pipeline fail. An allowed failure did not, and showing it
+ * to the agent only invites it to fix the wrong thing. A failed trigger job has no useful
+ * log of its own, so the jobs that matter are looked up in the pipeline it started.
+ */
+export async function listFailedJobs(credentials: GitLabCredentials, projectId: string, pipelineId: string, fetchFn: FetchFn = fetch, depth = 1): Promise<FailedJob[]> {
+  const scope = 'scope[]=failed&per_page=100';
+  const jobsResponse = await gitlabRequest(credentials, fetchFn, 'GET', `/projects/${projectId}/pipelines/${pipelineId}/jobs?${scope}`);
+  if (!jobsResponse.ok) {
+    return failWith(jobsResponse, 'job listing');
+  }
+
+  const failed: FailedJob[] = ((await jobsResponse.json()) as PipelineJobResource[])
+    .filter(job => undefined !== job.id && true !== job.allow_failure)
+    .map(job => ({ id: String(job.id), projectId, name: job.name ?? 'unnamed', stage: job.stage ?? 'unknown' }));
+
+  if (depth >= MAX_PIPELINE_DEPTH) {
+    return failed;
+  }
+
+  const bridgesResponse = await gitlabRequest(credentials, fetchFn, 'GET', `/projects/${projectId}/pipelines/${pipelineId}/bridges?${scope}`);
+  if (!bridgesResponse.ok) {
+    return failed;
+  }
+
+  for (const bridge of (await bridgesResponse.json()) as PipelineJobResource[]) {
+    const downstream = bridge.downstream_pipeline;
+    if (true !== bridge.allow_failure && undefined !== downstream?.id) {
+      const downstreamProject = String(downstream.project_id ?? projectId);
+      failed.push(...(await listFailedJobs(credentials, downstreamProject, String(downstream.id), fetchFn, depth + 1)));
+    }
+  }
+
+  return failed;
+}
+
+/** Enough to see the failure without handing the agent a whole build. */
+const JOB_LOG_TAIL_CHARS = 20000;
+
+// eslint-disable-next-line no-control-regex
+const LOG_CONTROL_SEQUENCES = /\u001b\[[0-9;]*[A-Za-z]|section_(start|end):\d+:\S+\r?/g;
+
+export async function readJobLogTail(credentials: GitLabCredentials, projectId: string, jobId: string, fetchFn: FetchFn = fetch): Promise<string> {
+  const response = await gitlabRequest(credentials, fetchFn, 'GET', `/projects/${projectId}/jobs/${jobId}/trace`);
+  if (!response.ok) {
+    return `(the log could not be read: status ${String(response.status)})`;
+  }
+  return (await response.text()).replace(LOG_CONTROL_SEQUENCES, '').slice(-JOB_LOG_TAIL_CHARS);
+}
+
+/** Null when it could not be read: a hint for the agent, not something worth failing over. */
+export async function latestPipelineStatus(credentials: GitLabCredentials, projectId: string, ref: string, fetchFn: FetchFn = fetch): Promise<string | null> {
+  const query = new URLSearchParams({ ref, per_page: '1' });
+  const response = await gitlabRequest(credentials, fetchFn, 'GET', `/projects/${projectId}/pipelines?${query.toString()}`);
+  if (!response.ok) {
+    return null;
+  }
+  return ((await response.json()) as { status?: string }[])[0]?.status ?? null;
+}
+
+/** Never throws, like ensureRefleetLabel: the result is already on its way to the backend. */
+export async function addMergeRequestNote(credentials: GitLabCredentials, projectId: string, iid: string, body: string, fetchFn: FetchFn = fetch): Promise<boolean> {
+  try {
+    const response = await gitlabRequest(credentials, fetchFn, 'POST', `/projects/${projectId}/merge_requests/${iid}/notes`, { body });
+    return response.ok;
+  } catch {
+    return false;
+  }
+}
