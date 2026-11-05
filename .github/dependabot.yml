@@ -1,52 +1,103 @@
 # Four dependency trees, one schedule, and grouped updates — a solo project drowns in the
 # default one-PR-per-package behaviour, and a wall of PRs gets ignored, which is worse than
-# no automation at all. Security updates are exempt from grouping by Dependabot itself and
-# still arrive on their own.
+# no automation at all.
+#
+# Each tree gets at most three PRs: routine updates, major versions and security fixes.
+# Grouping only the first would still leave one PR per package for the other two.
+#
+# Majors of a framework are ignored outright rather than grouped. They have to move together
+# with code changes, so a bump Dependabot makes on its own is never mergeable, and it can pass
+# CI anyway: a lone symfony/process 8 next to the rest of Symfony on 7.4 installs and goes
+# green. Upgrading one of those is a decision for a person, not a PR that turns up.
 version: 2
 updates:
     -   package-ecosystem: composer
         directory: /backend
         schedule:
-            interval: weekly
-        open-pull-requests-limit: 5
+            interval: monthly
+        ignore:
+            -   dependency-name: 'symfony/*'
+                update-types: ['version-update:semver-major']
         groups:
             backend:
                 patterns: ['*']
                 update-types: [minor, patch]
+            backend-major:
+                patterns: ['*']
+                update-types: [major]
+            backend-security:
+                applies-to: security-updates
+                patterns: ['*']
 
     -   package-ecosystem: npm
         directory: /frontend
         schedule:
-            interval: weekly
-        open-pull-requests-limit: 5
+            interval: monthly
+        ignore:
+            -   dependency-name: '@angular/*'
+                update-types: ['version-update:semver-major']
+            -   dependency-name: '@angular-devkit/*'
+                update-types: ['version-update:semver-major']
+            -   dependency-name: '@schematics/angular'
+                update-types: ['version-update:semver-major']
+            -   dependency-name: 'angular-eslint'
+                update-types: ['version-update:semver-major']
+            -   dependency-name: 'ng-packagr'
+                update-types: ['version-update:semver-major']
+            -   dependency-name: '@ng-icons/*'
+                update-types: ['version-update:semver-major']
+            # Held at one exact version through package.json's overrides, because @spartan-ng/cli
+            # would otherwise pull in a newer nx beside the rest. Security fixes still come through.
+            -   dependency-name: 'nx'
+                update-types: ['version-update:semver-major', 'version-update:semver-minor', 'version-update:semver-patch']
+            -   dependency-name: '@nx/*'
+                update-types: ['version-update:semver-major', 'version-update:semver-minor', 'version-update:semver-patch']
         groups:
             frontend:
                 patterns: ['*']
                 update-types: [minor, patch]
+            frontend-major:
+                patterns: ['*']
+                update-types: [major]
+            frontend-security:
+                applies-to: security-updates
+                patterns: ['*']
 
     -   package-ecosystem: npm
         directory: /runner/agent
         schedule:
-            interval: weekly
+            interval: monthly
         groups:
             runner:
                 patterns: ['*']
                 update-types: [minor, patch]
+            runner-major:
+                patterns: ['*']
+                update-types: [major]
+            runner-security:
+                applies-to: security-updates
+                patterns: ['*']
 
     -   package-ecosystem: npm
         directory: /mcp-server
         schedule:
-            interval: weekly
+            interval: monthly
         groups:
             mcp-server:
                 patterns: ['*']
                 update-types: [minor, patch]
+            mcp-server-major:
+                patterns: ['*']
+                update-types: [major]
+            mcp-server-security:
+                applies-to: security-updates
+                patterns: ['*']
 
     # The workflows pin actions by tag; this is what notices when a tag moves on.
     -   package-ecosystem: github-actions
         directory: /
         schedule:
-            interval: weekly
+            interval: monthly
         groups:
             actions:
                 patterns: ['*']
@@ -59,7 +110,7 @@ updates:
             - /frontend
             - /runner/agent
         schedule:
-            interval: weekly
+            interval: monthly
         groups:
             images:
                 patterns: ['*']

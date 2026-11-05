@@ -232,8 +232,6 @@ final class DoctrineRunnerJobRepositoryTest extends KernelTestCase
 
         $this->repository->save($older);
 
-        \usleep(1_000);
-
         $newer = $this->createJob(RunnerJobId::generate(), $organizationId, RunnerJobKindEnum::CHANGE, CriteriaModeEnum::AI);
         $newer->claim('runner-fleet-01', 300);
 

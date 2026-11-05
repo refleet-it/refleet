@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 use Rector\Config\RectorConfig;
 use Rector\Php83\Rector\Class_\ReadOnlyAnonymousClassRector;
-use Rector\Php83\Rector\ClassMethod\AddOverrideAttributeToOverriddenMethodsRector;
 use Rector\TypeDeclaration\Rector\ClassMethod\AddVoidReturnTypeWhereNoReturnRector;
 
 return RectorConfig::configure()
@@ -35,13 +34,10 @@ return RectorConfig::configure()
     ->withRules([
         AddVoidReturnTypeWhereNoReturnRector::class,
     ])
-    ->withConfiguredRule(AddOverrideAttributeToOverriddenMethodsRector::class, [
-        AddOverrideAttributeToOverriddenMethodsRector::ALLOW_OVERRIDE_EMPTY_METHOD => true,
-    ])
     ->withSkip([
         // Working null-check idiom the project already enforces via PHP CS Fixer's `is_null`
         // rule; instanceof would replace it with the declared (often less specific) type.
-        Rector\CodeQuality\Rector\Identical\FlipTypeControlToUseExclusiveTypeRector::class,
+        Rector\CodeQuality\Rector\If_\ExplicitNullableObjectInstanceRector::class,
         // PHPMD's PDepend parser cannot parse PHP 8.4's "new X()->method()" without
         // parentheses, nor PHP 8.3's "new readonly class(...)" — both hard-crash the
         // parser rather than reporting a rule violation.

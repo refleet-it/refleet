@@ -25,7 +25,7 @@ final readonly class DefineShiftChangeRequest
         #[OA\Property(type: 'string', example: 'Bump acme/legacy-lib to ^3.0 in composer.json and run composer update acme/legacy-lib.')]
         public string $changePrompt = '',
         #[Assert\Length(max: 100)]
-        #[OA\Property(description: 'Optional model id override. Not validated against a fixed list — see GET /runners/available-models for what the organization\'s runner fleet currently offers. Omit to let the runner use its own configured default.', type: 'string', example: 'claude-opus-5')]
+        #[OA\Property(description: "Optional model id override. Not validated against a fixed list — see GET /runners/available-models for what the organization's runner fleet currently offers. Omit to let the runner use its own configured default.", type: 'string', example: 'claude-opus-5')]
         public ?string $changeModel = null,
         #[OA\Property(description: 'Organization-wide rules the agent follows before the change itself — composed from playbooks (POST /playbooks/compose) and freely edited. Sent to the agent verbatim as a "## Rules" section.', type: 'string', example: 'Commit subject: Conventional Commits, English, imperative, at most 72 characters.', nullable: true)]
         public ?string $changeRules = null,

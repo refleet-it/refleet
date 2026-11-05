@@ -73,7 +73,10 @@ final class RefreshControllerTest extends WebTestCase
         $client->jsonRequest('POST', '/api/identity/refresh');
         Assert::assertSame(200, $client->getResponse()->getStatusCode());
 
-        // Act: replay the original, now-revoked token
+        // Act: replay the original, now-revoked token, and nothing else. The jar keeps the
+        // rotated cookie under the domain the response set it for, so adding this one beside
+        // it would send the rotated token and prove nothing about the old one.
+        $client->getCookieJar()->clear();
         $client->getCookieJar()->set(new Cookie(
             RefreshTokenCookieFactory::COOKIE_NAME,
             $originalValue,
