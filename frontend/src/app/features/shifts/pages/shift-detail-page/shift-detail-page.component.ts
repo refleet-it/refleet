@@ -166,6 +166,7 @@ export class ShiftDetailPageComponent implements OnInit {
 
   protected readonly markingMergedTargetId = signal<string | null>(null);
   protected readonly runningTargetId = signal<string | null>(null);
+  protected readonly retryingPipelineFixTargetId = signal<string | null>(null);
 
   protected readonly targetsSkeletonColumns: TableSkeletonColumn[] = [
     { width: 'w-40' },
@@ -449,6 +450,37 @@ export class ShiftDetailPageComponent implements OnInit {
       error: () => {
         this.runningTargetId.set(null);
         this.actionError.set('Failed to run the change on this target.');
+      },
+    });
+  }
+
+  /** The attempts only mean something while a fix is in play; a passed pipeline needs no count. */
+  pipelineAttemptLabel(target: ShiftTargetOverview): string | null {
+    if (0 === target.pipelineFixAttempts || 'passed' === target.pipelineStatus) {
+      return null;
+    }
+    return `Attempt ${target.pipelineFixAttempts} of ${target.pipelineFixMaxAttempts}`;
+  }
+
+  canRetryPipelineFix(target: ShiftTargetOverview): boolean {
+    return 'merge_request_open' === target.status && 'gave_up' === target.pipelineStatus;
+  }
+
+  retryPipelineFix(target: ShiftTargetOverview): void {
+    if (this.retryingPipelineFixTargetId()) {
+      return;
+    }
+    this.retryingPipelineFixTargetId.set(target.id);
+    this.actionError.set(null);
+
+    this.shiftService.retryPipelineFix(this.shiftId, target.id).subscribe({
+      next: () => {
+        this.retryingPipelineFixTargetId.set(null);
+        this.reload();
+      },
+      error: () => {
+        this.retryingPipelineFixTargetId.set(null);
+        this.actionError.set('Failed to retry the pipeline fix.');
       },
     });
   }

@@ -121,6 +121,8 @@ final readonly class ListShiftTargetsController
             'mergeRequestStatus' => $target->mergeRequestStatus,
             'pipelineStatus' => $target->pipelineStatus,
             'pipelineSummary' => $target->pipelineSummary,
+            'pipelineFixAttempts' => $target->pipelineFixAttempts,
+            'pipelineFixMaxAttempts' => $target->pipelineFixMaxAttempts,
             'createdAt' => $target->createdAt,
         ];
     }

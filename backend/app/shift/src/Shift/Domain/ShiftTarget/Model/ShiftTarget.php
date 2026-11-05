@@ -45,7 +45,7 @@ use Doctrine\ORM\Mapping as ORM;
 class ShiftTarget extends AggregateRoot
 {
     /** Each attempt is an agent run and a commit on someone's merge request, so this stays low. */
-    private const int MAX_PIPELINE_FIXES = 3;
+    public const int MAX_PIPELINE_FIXES = 3;
 
     /** How long a merge request may go without a pipeline before the project is taken to have no CI. */
     private const string NO_PIPELINE_AFTER = '-1 hour';
@@ -381,11 +381,32 @@ class ShiftTarget extends AggregateRoot
             return;
         }
 
+        if (PipelineFixOutcomeEnum::JOB_FAILED === $outcome) {
+            $this->sendPipelineBackToThePoll();
+
+            return;
+        }
+
         $this->pipelineStatus = match ($outcome) {
             PipelineFixOutcomeEnum::UNRELATED => PipelineStatusEnum::UNRELATED,
             PipelineFixOutcomeEnum::SUPERSEDED => PipelineStatusEnum::STOOD_DOWN,
             default => PipelineStatusEnum::GAVE_UP,
         };
+    }
+
+    /**
+     * A person asking for another go, once the attempts ran out or the agent found nothing to
+     * do. The poll decides from there, so a pipeline that has since gone green just settles.
+     */
+    public function retryPipelineFix(): void
+    {
+        if (ShiftTargetStatusEnum::MERGE_REQUEST_OPEN !== $this->status || PipelineStatusEnum::GAVE_UP !== $this->pipelineStatus) {
+            throw new InvalidShiftTargetStateTransitionException($this->status, 'retry pipeline fix');
+        }
+
+        $this->pipelineFixAttempts = 0;
+        $this->pipelineSummary = null;
+        $this->sendPipelineBackToThePoll();
     }
 
     public function cancel(): void
@@ -544,6 +565,19 @@ class ShiftTarget extends AggregateRoot
         $this->pipelineHeadSha = $headSha;
         $this->pipelineWatchStartedAt = new \DateTimeImmutable();
         $this->pipelineFixJobId = null;
+    }
+
+    /**
+     * Forgetting the pipeline already sent to an agent is what lets the same one be sent
+     * again; the attempt limit is what stops that going on for ever.
+     */
+    private function sendPipelineBackToThePoll(): void
+    {
+        $this->pipelineStatus = PipelineStatusEnum::WAITING;
+        $this->pipelineWatchStartedAt = new \DateTimeImmutable();
+        $this->pipelineCheckedAt = null;
+        $this->pipelineFixJobId = null;
+        $this->pipelineLastFixedId = null;
     }
 
     /**

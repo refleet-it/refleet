@@ -33,7 +33,7 @@ final readonly class RecordShiftTargetResultHandler
         if (null !== $command->pipelineFixJobId) {
             $target->recordPipelineFixResult(
                 $command->pipelineFixJobId,
-                $command->success ? PipelineFixOutcomeEnum::tryFrom($command->pipelineFixOutcome ?? '') ?? PipelineFixOutcomeEnum::NOT_FIXED : PipelineFixOutcomeEnum::NOT_FIXED,
+                $command->success ? PipelineFixOutcomeEnum::tryFrom($command->pipelineFixOutcome ?? '') ?? PipelineFixOutcomeEnum::NOT_FIXED : PipelineFixOutcomeEnum::JOB_FAILED,
                 $command->errorMessage ?? $command->summary,
                 $command->headSha,
             );

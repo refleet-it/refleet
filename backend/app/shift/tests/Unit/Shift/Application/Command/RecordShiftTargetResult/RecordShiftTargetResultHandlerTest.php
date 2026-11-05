@@ -79,11 +79,11 @@ final class RecordShiftTargetResultHandlerTest extends TestCase
 
     #[Test]
     #[AllowMockObjectsWithoutExpectations]
-    public function a_failed_pipeline_fix_job_counts_as_not_fixed_whatever_it_claims(): void
+    public function a_failed_pipeline_fix_job_is_a_job_failure_whatever_it_claims(): void
     {
         // Arrange
         $target = $this->createMock(ShiftTarget::class);
-        $target->expects($this->once())->method('recordPipelineFixResult')->with('job-1', PipelineFixOutcomeEnum::NOT_FIXED, 'push rejected', null);
+        $target->expects($this->once())->method('recordPipelineFixResult')->with('job-1', PipelineFixOutcomeEnum::JOB_FAILED, 'push rejected', null);
         $this->shiftTargets->method('findById')->willReturn($target);
 
         // Act

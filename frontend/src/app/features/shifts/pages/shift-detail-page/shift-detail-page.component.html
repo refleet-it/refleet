@@ -318,6 +318,17 @@
                               >
                                 {{ pipelineStatusLabels[target.pipelineStatus] }}
                               </app-status-badge>
+                              @if (pipelineAttemptLabel(target); as attempt) {
+                                <div class="text-muted-foreground mt-1 text-xs">{{ attempt }}</div>
+                              }
+                              @if (target.pipelineSummary; as reason) {
+                                <div
+                                  class="text-muted-foreground mt-1 line-clamp-2 max-w-xs text-xs whitespace-normal"
+                                  [title]="reason"
+                                >
+                                  {{ reason }}
+                                </div>
+                              }
                             </div>
                           }
                           @if (target.runnerName) {
@@ -382,6 +393,23 @@
                                 MR
                               </a>
                             }
+                            @if (canRetryPipelineFix(target)) {
+                              <button
+                                hlmBtn
+                                size="sm"
+                                variant="outline"
+                                [disabled]="retryingPipelineFixTargetId() !== null"
+                                title="Try fixing the pipeline again, without touching what is already on the merge request"
+                                (click)="retryPipelineFix(target)"
+                              >
+                                @if (retryingPipelineFixTargetId() === target.id) {
+                                  Retrying…
+                                } @else {
+                                  <ng-icon name="lucideRotateCw" class="mr-1.5" />
+                                  Retry fix
+                                }
+                              </button>
+                            }
                             @if (targetRunAction(target); as action) {
                               <button
                                 hlmBtn
@@ -391,7 +419,7 @@
                                 [title]="
                                   'run' === action
                                     ? 'Run the change on this target only, as a trial'
-                                    : 'Run the change again — the existing merge request is updated'
+                                    : 'Run the whole change again from scratch — replaces what is on the merge request\'s branch'
                                 "
                                 (click)="runTarget(target)"
                               >
