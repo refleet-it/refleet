@@ -95,7 +95,8 @@ final readonly class DoctrineRunnerJobRepository implements RunnerJobRepositoryI
             ->andWhere('j.claimedBy = :claimedBy')
             ->setParameter('organizationId', $organizationId->asString())
             ->setParameter('claimedBy', $claimedBy)
-            ->orderBy('j.createdAt', 'DESC');
+            ->orderBy('j.createdAt', 'DESC')
+            ->addOrderBy('j.id', 'DESC');
 
         /** @var RunnerJob[] $items */
         [$items, $total] = QueryBuilderPaginator::paginate($qb, $pagination);
