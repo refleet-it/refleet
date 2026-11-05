@@ -20,7 +20,7 @@ use Symfony\Component\Security\Http\Attribute\CurrentUser;
 
 #[Route('/playbooks/compose', name: 'playbook_compose', methods: ['POST'])]
 #[OA\Post(
-    description: 'Turn a selection of playbooks into the text a shift or qualification starts from: the rules concatenated under their headings, the task rendered with its parameters, plus the task\'s preferred engine/model and the list of sources. Nothing is stored — the caller pastes the result into the editable prompt fields.',
+    description: "Turn a selection of playbooks into the text a shift or qualification starts from: the rules concatenated under their headings, the task rendered with its parameters, plus the task's preferred engine/model and the list of sources. Nothing is stored — the caller pastes the result into the editable prompt fields.",
     summary: 'Compose Prompt From Playbooks',
     tags: ['Playbook'],
     responses: [

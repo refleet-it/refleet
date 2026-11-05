@@ -31,7 +31,7 @@ final readonly class CreateQualificationRequest
         #[OA\Property(type: 'string', example: 'Does this repository depend on acme/legacy-lib?')]
         public string $qualificationPrompt = '',
         #[Assert\Length(max: 100)]
-        #[OA\Property(description: 'Optional model id override. Not validated against a fixed list — see GET /runners/available-models for what the organization\'s runner fleet currently offers. Omit to let the runner use its own configured default.', type: 'string', example: 'claude-sonnet-5')]
+        #[OA\Property(description: "Optional model id override. Not validated against a fixed list — see GET /runners/available-models for what the organization's runner fleet currently offers. Omit to let the runner use its own configured default.", type: 'string', example: 'claude-sonnet-5')]
         public ?string $qualificationModel = null,
         /**
          * @var string[]|null

@@ -12,7 +12,7 @@ final class Version20260921100000 extends AbstractMigration
     #[\Override]
     public function getDescription(): string
     {
-        return 'Add runners.usage — what the runner\'s last agent run reported about its consumption (rate-limit windows, context window, tokens, cost), reported on heartbeat and shown on the runner detail page';
+        return "Add runners.usage — what the runner's last agent run reported about its consumption (rate-limit windows, context window, tokens, cost), reported on heartbeat and shown on the runner detail page";
     }
 
     #[\Override]

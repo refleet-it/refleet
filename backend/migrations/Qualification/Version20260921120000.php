@@ -12,7 +12,7 @@ final class Version20260921120000 extends AbstractMigration
     #[\Override]
     public function getDescription(): string
     {
-        return 'Drop the static (regex) qualification mode: fold existing static criteria into an AI prompt so their history stays readable, drop the target_file/pattern columns, and record the agent\'s 1–5 score per target';
+        return "Drop the static (regex) qualification mode: fold existing static criteria into an AI prompt so their history stays readable, drop the target_file/pattern columns, and record the agent's 1–5 score per target";
     }
 
     #[\Override]
