@@ -67,7 +67,7 @@
     "@swc/helpers": "~0.5.18",
     "@types/express": "^5.0.6",
     "@typescript-eslint/utils": "^8.72.0",
-    "angular-eslint": "20.1.1",
+    "angular-eslint": "20.7.0",
     "autoprefixer": "^10.6.2",
     "baseline-browser-mapping": "^2.11.34",
     "eslint": "^9.29.0",
